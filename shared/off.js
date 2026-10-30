@@ -1,4 +1,4 @@
-// '2026 재활평가관리' 평가일정 시트 오른쪽 당직의/오프 달력(U:AA) → { 'YYYY-MM-DD': [{doctor, pm}] }  (eval-schedule과 같은 방식)
+// '2026 재활평가관리' 평가일정 시트 오른쪽 당직의/오프 달력(U:AA) → { 'YYYY-MM-DD': [{doctor, pm}] } 
 const ExcelJS = require('exceljs');
 const { iso } = require('./dates');
 const txt = c => { const v = c && c.value; if (v == null) return ''; if (v.richText) return v.richText.map(t => t.text).join(''); if (v.result != null) return String(v.result); return String(v); };
