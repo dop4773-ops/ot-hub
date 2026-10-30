@@ -1,0 +1,9 @@
+{
+  "name": "ot-hub",
+  "version": "0.1.0",
+  "description": "작업치료팀 업무자동화 프로토타입 (rehab-hub 합류 예정)",
+  "main": "main.js",
+  "scripts": { "start": "node node_modules/electron/cli.js .", "test": "node scripts/run-tests.js" },
+  "devDependencies": { "electron": "^31.7.7", "electron-builder": "^24.13.3" },
+  "dependencies": { "exceljs": "^4.4.0", "sql.js": "^1.11.0" }
+}
