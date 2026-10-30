@@ -1,11 +1,13 @@
 {
   "name": "ot-hub",
   "version": "0.2.0",
-  "description": "작업치료팀 업무자동화 프로토타입 (rehab-hub 합류 예정)",
+  "description": "작업치료팀 업무자동화 — 청소분담표·평가일 관리·신환 평가명단·SCI 명단·출근부·도구 목록",
   "main": "main.js",
   "scripts": {
     "start": "node node_modules/electron/cli.js .",
-    "test": "node scripts/run-tests.js"
+    "test": "node scripts/run-tests.js",
+    "build:win": "electron-builder --win nsis --x64",
+    "release:win": "electron-builder --win nsis --x64 --publish always"
   },
   "devDependencies": {
     "electron": "^31.7.7",
@@ -14,5 +16,42 @@
   "dependencies": {
     "exceljs": "^4.4.0",
     "sql.js": "^1.11.0"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "build": {
+    "appId": "com.rehabteam.othub",
+    "productName": "작업치료 업무자동화",
+    "files": [
+      "main.js",
+      "preload.js",
+      "shared/**/*",
+      "modules/**/*",
+      "renderer/**/*",
+      "build/icon.png",
+      "build/icon.ico",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "dop4773-ops",
+      "repo": "ot-hub",
+      "releaseType": "release"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "artifactName": "ot-hub-setup-${version}.exe"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dop4773-ops/ot-hub.git"
   }
 }
