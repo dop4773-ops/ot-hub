@@ -5,13 +5,16 @@ ot-hub는 **프로토타입**입니다. 나중에 rehab-hub(`~/Desktop/rehab-hub
 
 ## 구조
 ```
-shared/        공용 — dates(날짜) · xl(엑셀 읽기 어댑터) · files(파일 역할) · staff(팀 시트) · status(현황판) · off(주치의 off) · messenger(퇴원)
+shared/        공용 — dates(날짜) · xl(엑셀 읽기 어댑터) · files(파일 역할) · staff(팀 시트) · status(현황판) · timetable(환자 전체시간표 카드) · off(주치의 off) · messenger(퇴원)
 modules/<id>/  기능 하나 = 폴더 하나
    index.js      IPC 등록 (메인 프로세스)           ← rehab-hub에서는 main/ipc/*.ipc.js 로
    logic/계산 파일  순수 계산(화면·Electron 모름)      ← 그대로 renderer/core 로 옮김
    export/build  결과 엑셀 만들기                     ← 쓰기 방식만 교체
 renderer/modules/<id>.js   화면 — Hub.register({id,title,render(root)})   ← 도구 페이지(tools/*.html) 한 장
 ```
+
+## 화면 틀
+`renderer/shell.css`·`index.html`은 rehab-hub와 같은 틀(상단바 + 어두운 사이드바 + 카드)로 맞춰 두었다. 합칠 때는 각 `renderer/modules/<id>.js`의 `render(root)`를 rehab-hub의 `.view` 안 카드에 넣으면 되고, 글꼴(Pretendard)·색상 변수는 같다.
 
 ## 합칠 때 바꿀 것 (이것만)
 | 항목 | 지금(ot-hub) | rehab-hub |
@@ -27,7 +30,7 @@ renderer/modules/<id>.js   화면 — Hub.register({id,title,render(root)})   �
 - 청소: `cleaning/assign.js`(균등·새 구역 우선) · `bigclean.js` · `history.js`의 `parseSheet`
 - 평가일: `eval/plan.js` · `cycle.js`(산재) · `ccrt.js`(planCcrt) — 날짜는 전부 'YYYY-MM-DD' 문자열
 - 신환 명단: `roster/roster.js` · `emr.js`의 `itemsOf`(EMR 평가 처방 코드 → 평가항목)
-- SCI 명단: `sci/sci.js`의 `buildList`
+- SCI 명단: `sci/sci.js`의 `buildList` (규칙 ① 현황판 색상 ② SCIM + 전체시간표 카드가 '재활치료 스케줄'(회복기 글자 없음) — `shared/timetable.js`)
 - 출근부: `attendance/build.js`(+`shared/staff.js` 정렬)
 - 도구 목록: `inventory/logic.js`의 `match/apply`
 

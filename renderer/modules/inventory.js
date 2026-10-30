@@ -1,5 +1,5 @@
 // 도구 목록 화면: 목록 보기 / 신청서 가져오기·분류 / 반영·저장
-Hub.register({ id: 'inventory', title: '도구 목록', render(root) {
+Hub.register({ id: 'inventory', icon: '🧰', desc: '신청서를 가져와 비품·소모품 분류', title: '도구 목록', render(root) {
   const { esc, invoke, say, opts, tabsHtml } = Hub;
   const ACTIONS = ['', '신규', '추가', '교체', '소진', '제외'];
   const AHELP = { '': '미분류', 신규: '신규 등록(목록에 새 품목)', 추가: '추가 구입(수량 +)', 교체: '폐기 후 보충(재고량 그대로)', 소진: '소모품 사용 기록', 제외: '목록과 무관(제외)' };

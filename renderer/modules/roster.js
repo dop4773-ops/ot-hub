@@ -1,5 +1,5 @@
 // 신환 평가명단 화면
-Hub.register({ id: 'roster', title: '신환 평가명단', render(root) {
+Hub.register({ id: 'roster', icon: '🆕', desc: '신환 평가항목(EMR 액팅 기록)과 평가일 초안', title: '신환 평가명단', render(root) {
   const { esc, invoke, say, opts, wd, pad } = Hub, now = new Date(), nm = Hub.nextMonth();
   const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const S = { year: nm.year, month: nm.month, from: ymd(new Date(now.getFullYear(), now.getMonth(), 25)), to: ymd(new Date(now.getFullYear(), now.getMonth() + 1, 0)), res: null };

@@ -7,6 +7,8 @@ const ROLES = {
   eval:      { label: '2026 재활평가관리 OT통합', key: '재활평가관리', hint: '평가일정·산재·CCRT 명단·주치의 off 달력', exts: ['xlsx'] },
   cleaning:  { label: '청소분담표', key: '청소분담', hint: '과거 분기 시트 = 배정 이력', exts: ['xlsx', 'xlsm'] },
   sci:       { label: 'SCI 비회복기 명단', key: 'SCI 비회복기', hint: '월별 시트', exts: ['xlsx'] },
+  timetable10: { label: '10F 환자전체시간표(원본)', key: '10F 환자전체시간표', hint: 'OneDrive › 시간표 및 현황 — 카드의 "회복기 재활치료 스케줄"/"재활치료 스케줄"로 비회복기 판별', exts: ['xlsx'] },
+  timetable3:  { label: '3F 환자전체시간표(원본)', key: '3F 환자전체시간표', hint: '10F와 같은 형식', exts: ['xlsx'] },
   tools:     { label: '작업치료 도구 목록', key: '도구 목록', hint: '비품·소모품·수량', exts: ['xlsx'] },
   supply:    { label: '사무용품 신청서(선택)', key: '사무용품', hint: '도구 목록 가져오기용', exts: ['xlsx', 'xls', 'xlsm'] },
   messenger: { label: '메신저 DB (messenger.db)', key: 'messenger.db', hint: '퇴원 일정 읽기용 — 읽기만 합니다', exts: ['db'], exact: true },

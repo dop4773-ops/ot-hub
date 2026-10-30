@@ -1,5 +1,5 @@
 // 청소분담표 화면: ① 이력 시트 ② 규칙(직책·칸) ③ 이번 분기 배정 ④ 대청소
-Hub.register({ id: 'cleaning', title: '청소분담표', sep: true, render(root) {
+Hub.register({ id: 'cleaning', icon: '🧹', desc: '팀 시트 직책·과거 이력으로 분기 청소를 공평하게 배정', title: '청소분담표', sep: true, render(root) {
   const { esc, invoke, say, opts, tabsHtml } = Hub;
   const CATS = ['밀대', '쓸기', '닦기', '도구장', '트롤리', '소모품라벨'];
   const S = { tab: 'plan', data: null, rules: null, use: {}, people: {}, base: '', last: '', plan: null, big: null, q: '', d: '' };
@@ -22,7 +22,7 @@ Hub.register({ id: 'cleaning', title: '청소분담표', sep: true, render(root)
   const save = async () => { await invoke('cleaning:saveRules', S.rules, S.use); };
 
   function draw() {
-    const T = [['plan', '③ 이번 분기 배정'], ['big', '④ 대청소'], ['rules', '② 규칙'], ['hist', '① 이력 시트']];
+    const T = [['hist', '① 이력 시트'], ['rules', '② 규칙'], ['plan', '③ 이번 분기 배정'], ['big', '④ 대청소']];
     root.innerHTML = tabsHtml(T, S.tab) + `<div id="pane"></div>`;
     ({ hist: pHist, rules: pRules, plan: pPlan, big: pBig })[S.tab]();
   }

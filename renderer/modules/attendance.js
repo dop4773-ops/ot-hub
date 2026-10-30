@@ -1,5 +1,5 @@
 // 출근부 화면: 층 선택 → 그 층 치료사(시간표) 직급·경력순 → 새 xlsx
-Hub.register({ id: 'attendance', title: '출근부', render(root) {
+Hub.register({ id: 'attendance', icon: '🕘', desc: '층별 직급순 출근부', title: '출근부', render(root) {
   const { esc, invoke, say, opts, wd, pad } = Hub, nm = Hub.nextMonth();
   const S = { year: nm.year, month: nm.month, data: null, floor: '', off: {}, extra: '', holidays: '' };
   const names = () => S.data.floors[S.floor].filter(p => !S.off[p.name]);

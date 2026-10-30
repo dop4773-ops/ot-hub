@@ -1,5 +1,5 @@
 // 평가일 관리 화면: 일반 평가 / CCRT / 산재 / 주치의 off / 규칙
-Hub.register({ id: 'eval', title: '평가일 관리', render(root) {
+Hub.register({ id: 'eval', icon: '📅', desc: '일반·CCRT·산재 평가일 초안과 규칙 점검', title: '평가일 관리', render(root) {
   const { esc, invoke, say, opts, wd, pad, tabsHtml } = Hub;
   const nm = Hub.nextMonth();
   const S = { tab: 'general', year: nm.year, month: nm.month, info: null, cfg: null, rows: { general: null, ccrt: null, sanjae: null }, counts: null, sort: false };

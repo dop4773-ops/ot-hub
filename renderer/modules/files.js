@@ -1,5 +1,5 @@
 // 파일 연결: 모든 모듈이 같이 쓰는 파일 역할(작업치료현황, 재활평가관리 …)을 한 곳에서 지정한다.
-Hub.register({ id: 'files', title: '파일 연결', render(root) {
+Hub.register({ id: 'files', icon: '📦', desc: '모든 기능이 같은 파일 연결을 씁니다', title: '파일 연결', render(root) {
   const { esc, invoke, say, state } = Hub, R = state.roles;
   const draw = () => {
     const S = state.settings;

@@ -36,10 +36,16 @@ async function loadPrevList(file, sheetName) {
 }
 
 // asOf: 'YYYY-MM-DD' (월 첫날) — '곧 비회복기로 전환될 사람' 계산에 사용
-function buildList({ status, scim, prev = [], asOf, recoveryDays = 180 }) {
+// nonRecovery: 전체시간표 카드가 '재활치료 스케줄'(회복기 글자 없음)인 환자 이름 집합 — 없으면(시간표 미연결) SCIM만으로 판단
+function buildList({ status, scim, nonRecovery = null, prev = [], asOf, recoveryDays = 180 }) {
   const active = s => s && (s.state === '입원' || s.state === '재입원');
   const SCI_COLOR = 'FFFFC000';   // 현황판에서 척수손상을 칠하는 주황색 — 구분이 '일반'이어도 이 색이면 비회복기 SCI
-  const via = s => { const c = s.kindColor === SCI_COLOR, m = scim.has(s.name); return c && m ? '색상+SCIM' : c ? '색상' : m ? 'SCIM' : null; };
+  const via = s => {
+    const c = s.kindColor === SCI_COLOR, m = scim.has(s.name), t = nonRecovery ? nonRecovery.has(s.name) : null;
+    const ok = c || (m && (t === null || t));                       // 색상(주황) 또는 SCIM + 시간표가 '재활'(비회복기)
+    if (!ok) return null;
+    return [c ? '색상' : null, m ? 'SCIM' : null, t ? '시간표' : null].filter(Boolean).join('+');
+  };
   const members = Object.values(status).filter(s => active(s) && s.kind !== '척수손상' && via(s));
   const order = new Map(prev.map((p, i) => [p.name, i]));
   members.sort((a, b) => (order.has(a.name) ? order.get(a.name) : 1e6) - (order.has(b.name) ? order.get(b.name) : 1e6) || Number(a.doctor) - Number(b.doctor) || a.admitted.localeCompare(b.admitted));
