@@ -3,6 +3,7 @@ const fs = require('fs'), path = require('path');
 const { ROLES, find, scanAll, defaultRoots } = require('./shared/files');
 const { nfc } = require('./shared/xl');
 const { createUpdateManager } = require('./shared/updater');
+const cache = require('./shared/cache');
 
 // ---- 설정 저장소: { files:{역할:경로}, emr:[…], mod:{모듈id:{…}} } ----
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
@@ -28,6 +29,7 @@ const dialog = {
 };
 
 function createWindow() {
+  if (app.isPackaged || process.env.OTHUB_DISK_CACHE) cache.configure(path.join(app.getPath('userData'), 'parse-cache'), app.getVersion());
   const win = new BrowserWindow({ width: 1360, height: 900, show: false, backgroundColor: '#f4f7fb', webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true } });
   win.once('ready-to-show', () => win.show());
   win.loadFile('renderer/index.html');
@@ -94,20 +96,15 @@ ipcMain.handle('app:setAutoUpdate', (_, on) => { settings.setMod('app', { ...set
 ipcMain.handle('app:autoUpdate', () => settings.mod('app').autoUpdate !== false);
 
 // ---- 시작할 때 연결된 파일을 미리 읽어 둔다 (첫 클릭부터 바로 열리도록; 실패해도 조용히 넘어감) ----
+// 설치본: 별도 프로세스가 읽어 결과를 디스크에 저장(본체는 막히지 않음) + 다음 실행부터는 저장분을 바로 꺼내 쓴다. 개발 실행·작업 프로세스 실패 시: 본체에서 직접 읽는다.
+const diskCache = app.isPackaged || !!process.env.OTHUB_DISK_CACHE;
 async function warmUp() {
-  const f = settings.files(), t0 = Date.now(), tasks = [];
-  const add = (fn) => tasks.push(() => Promise.resolve().then(fn).catch(() => {}));
-  if (f.status) { add(() => require('./shared/status').loadStatus(f.status)); add(() => require('./shared/staff').loadStaff(f.status)); add(() => require('./modules/eval/ccrt').loadCcrtSchedule(f.status)); add(() => require('./modules/attendance').loadFloors(f.status)); }
-  if (f.eval) { add(() => require('./modules/eval/schedule').loadSchedule(f.eval)); add(() => require('./modules/eval/schedule').loadCycles(f.eval)); add(() => require('./modules/sci/sci').loadScimNames(f.eval)); add(() => require('./shared/off').loadOff(f.eval)); }
-  if (f.cleaning) add(() => require('./modules/cleaning/history').loadHistory(f.cleaning));
-  if (f.tools) add(() => require('./modules/inventory/logic').loadTools(f.tools));
-  if (f.supply) add(() => require('./modules/inventory/request').loadRequests(f.supply));
-  for (const k of ['timetable10', 'timetable3']) if (f[k]) add(() => require('./shared/timetable').loadTimetableCards(f[k]));
-  if (settings.emr().length) add(() => require('./modules/roster/emr').loadEmr(settings.emr()));
-  if (settings.pot().length) add(() => require('./shared/pot').loadPot(settings.pot()));
-  if (f.messenger) add(() => require('./shared/messenger').loadDischarges(f.messenger));
-  for (const t of tasks) await t();                         // 하나씩(동시에 많이 읽으면 오히려 느려진다)
-  console.log(`미리 읽기 완료 ${Date.now() - t0}ms`);
+  const t0 = Date.now(), run = async () => { for (const t of require('./shared/warm').warmTasks(settings.all())) await t(); console.log(`미리 읽기 완료 ${Date.now() - t0}ms`); };
+  if (!diskCache) return run();
+  try {
+    const { utilityProcess } = require('electron'), child = utilityProcess.fork(path.join(__dirname, 'shared', 'warm-worker.js'), [settingsFile(), path.join(app.getPath('userData'), 'parse-cache'), app.getVersion()], { stdio: 'inherit' });
+    child.on('exit', code => { if (code) run(); });
+  } catch { run(); }
 }
 
 // ---- 모듈 등록 ----

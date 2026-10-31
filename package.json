@@ -1,6 +1,6 @@
 {
   "name": "ot-hub",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "작업치료팀 업무자동화 — 청소분담표·평가일 관리·신환 평가명단·SCI 명단·출근부·도구 목록",
   "main": "main.js",
   "scripts": {
