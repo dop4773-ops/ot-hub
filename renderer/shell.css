@@ -113,3 +113,61 @@ table.att td{font-size:11px;color:#6b7585}
 .actionbar{position:sticky;top:0;z-index:6;display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:8px 0;background:var(--bg,#f5f6f8)}
 .box.slim{padding:6px 12px;margin:6px 0}.box.slim>summary{cursor:pointer}.small{font-size:12px;margin:6px 0}
 .spgrid{display:grid;grid-template-columns:max-content 1fr;gap:4px 12px;align-items:center;margin-top:6px}.spl{display:flex;align-items:center;gap:6px;white-space:nowrap}.spn{display:flex;flex-wrap:wrap;gap:4px}.spn .pp{margin:0;padding:1px 8px;font-size:12px}.src{font-size:11px;color:var(--muted,#6b7280)}.src.warn{color:#b45309}
+
+/* ═══ rehab-hub 파스텔 테마(0.8)와 같은 값 — 합칠 때 화면 CSS가 그대로 어울리도록 색·면·버튼을 맞춘다 ═══ */
+:root{
+  --navy:#5b72b4; --navy2:#7189c8; --blue:#6f94e3; --blue-dark:#5b7fcc; --green:#3f9a78; --red:#d4606c; --orange:#b9782d; --purple:#8f78d0;
+  --bg:#f6f8fd; --border:#e3e9f5; --text:#2b3550; --sub:#66718f; --muted:#a2abc2;
+  --sidebar-text:#5d6b94; --sidebar-hover:rgba(111,148,227,.13);
+  --pastel-blue:#dbe6fb; --pastel-blue-ink:#2f4378; --pastel-blue-line:#c1d3f4; --pastel-active:#d8e4fb;
+  --accent:var(--blue); --card:#fff; --line:var(--border);
+}
+#topbar{background:#e2eafa;color:#3b4a7c;box-shadow:0 2px 10px rgba(110,130,190,.12)}
+#topbar .tag{color:#7684ad}
+#topbar .pill{background:rgba(255,255,255,.7);border:1px solid rgba(110,130,190,.22);color:#3b4a7c}
+#topbar .pill.ok{background:#dff3ea;border-color:#bfe3d1;color:#2f7a5d}#topbar .pill.stale{background:#fdecd2;border-color:#f1d4a3;color:#a8692a}
+#sidebar{background:#f1f5fd;border-right:1px solid #e3e9f5}
+.sidebar-toggle{background:rgba(111,148,227,.14);color:#5d6b94}.sidebar-toggle:hover{background:rgba(111,148,227,.25);color:#35457a}
+.nav-item{color:#5d6b94}.nav-item:hover{background:rgba(111,148,227,.13);color:#35457a}.nav-item.active{background:#d8e4fb;color:#2f4378}
+.nav-sep{background:#e3e9f5}
+.sidebar-status{background:rgba(255,255,255,.75);border:1px solid #e0e7f6;color:#66718f}.sidebar-status .dot-row{color:#35457a}.sidebar-status .sub{color:#7c88a8}
+.card{box-shadow:0 2px 12px rgba(110,130,190,.07)}
+/* 버튼: 기본 = 흰색, 주요(pri/primary) = 파스텔 파랑 (rehab-hub .btn.primary) */
+button:hover,.btn:hover{background:#f3f6fd}
+button.pri,.btn.primary{background:var(--pastel-blue);color:var(--pastel-blue-ink);border-color:var(--pastel-blue-line)}button.pri:hover,.btn.primary:hover{background:#cfdef9}
+/* 선택 묶음(탭·분류·날짜 버튼)의 켜진 상태 = 파스텔 */
+.tabs button.on,.seg button.active,.datebtn.on,.chip.on,.chipb.on{background:var(--pastel-active);color:var(--pastel-blue-ink);border-color:var(--pastel-blue-line)}
+.datebtn.on small,.chip.on .mute{color:#6b7da8}
+.tabs button:hover:not(.on),.seg button:hover:not(.active){background:#eef2fb}
+.chip.off{background:#f1f3f6;color:#8a94a4;border-color:#e0e4ea;opacity:1}
+/* 글자색 의미: ok 초록 · warn 주황 · err 빨강 (rehab-hub chip.ok/warn/err) */
+.warn{color:var(--orange)}.err{color:var(--red)}
+div.warn{background:#fff4e3;border:1px solid #f3dcb4;border-radius:10px;padding:10px 14px;font-weight:600}
+.warnbox{background:#fff7ea;border-color:#f1d9a8}
+.bad{background:#fdecee}.soft{background:#fff4e3}.vac{background:#fff4e3}
+tr.sel td{background:#e8effc}tr.clk:hover td{background:#f4f8ff}
+.badge{background:#eef1f6;color:#707d92}.badge.blue{background:#e8effc;color:#3a5aa8}.badge.orange{background:#fdf1e3;color:var(--orange)}.badge.green{background:#e6f5ec;color:var(--green)}.badge.red{background:#fbe7e7;color:var(--red)}
+/* 알림(토스트): rehab-hub와 같이 위쪽 가운데 */
+#msg{top:70px;bottom:auto;right:auto;left:50%;transform:translate(-50%,0);background:#fff;border:1px solid #cfdbf5;box-shadow:0 6px 24px rgba(70,90,150,.2);border-radius:12px;padding:10px 16px;z-index:9000}
+#msg.warn{border-color:#f1d4a3;background:#fff8ec;color:#a8692a}
+/* 위에 고정/아래 고정 줄 */
+.actionbar{background:var(--bg)}.exportbar{background:#fff;border:1px solid #cfdbf5;box-shadow:0 -4px 16px rgba(70,90,150,.1)}
+.pickpop{border:1px solid #cfdbf5;box-shadow:0 8px 28px rgba(70,90,150,.22);border-radius:12px}.pickpop .pi:hover{background:#eef2fb}
+.dropz{border-color:#c1d3f4;background:#fafcff;color:var(--sub)}.dropz.over{border-color:var(--blue);background:#eef3fd}
+.cell.edited{outline-color:#e0a24a}
+table.sheet th{background:#e9eefb;color:#2f4378}
+tr.soft td{background:#fffaf2}tr.bad td{background:#fdecee}
+
+/* 설정형 화면(파일 연결 등): 왼쪽 제목·설명·경로 / 오른쪽 버튼 — rehab-hub 설정 화면(.st-*)과 같은 틀 */
+.st-panel{background:#fff;border:1px solid var(--border);border-radius:14px;padding:4px 20px 8px}
+.st-sec{font-size:11.5px;font-weight:800;color:#8a97ad;letter-spacing:.04em;padding:16px 0 4px}
+.st-row{border-bottom:1px solid #eef1f6;padding:11px 0}.st-row:last-child{border-bottom:0}
+.st-line{display:flex;align-items:center;gap:16px}.st-line .t{flex:1;min-width:0}
+.st-line .t b{display:block;font-size:13px}.st-line .t span{display:block;color:var(--sub);font-size:12px;margin-top:1px}
+.st-line .t b .chip{display:inline-flex;margin-left:6px;padding:1px 9px;font-size:11px;vertical-align:1px}.st-line .t b .chip i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.st-line .t code{display:block;font-size:11.5px;color:#43546d;word-break:break-all;margin-top:3px}
+.st-note{margin:6px 0 8px;color:var(--sub);font-size:12px}
+.st-btns{display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
+.st-fold{display:flex;align-items:center;gap:10px;padding:7px 12px;border:1px solid var(--border);border-radius:10px;margin:6px 0;background:#fafcff;font-size:13px}.st-fold code{flex:1;color:#43546d;font-size:12px;word-break:break-all}
+.chip.ok{background:#e3f5ec;color:#3a8d6e;border-color:#c6e8d7}.chip.off{background:#f1f3f6;color:#8a94a4;border-color:#e0e4ea;text-decoration:none}.chip.warn{background:#fff3dc;color:#b9782d;border-color:#f1d9a8}
+.st-line .t span b{display:inline;font-size:inherit}.card>.st-panel{border:0;padding:0}

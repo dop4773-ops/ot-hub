@@ -52,3 +52,13 @@ renderer/modules/<id>.js   화면 — Hub.register({id,title,render(root)})   �
 - 신환 평가항목 중 MAS·FAC는 EMR 평가 처방에 없어 환자 구분(뇌손상·MSK·척수손상)으로 채움.
 - CCRT는 '10F) CCRT' 스케줄표만 대상(3층은 BETTER/COMCOG만 있어 제외 판정에만 사용).
 - 도구 목록 신청서는 형식을 몰라 열 매핑 화면으로 가져옴 — 실제 신청서 형식이 확정되면 자동 인식으로 바꿀 수 있음.
+
+## 디자인 통일 (rehab-hub 파스텔 테마 0.8과 같은 값)
+`renderer/shell.css` 맨 아래 "파스텔 테마" 블록이 rehab-hub와 같은 색·면·버튼 값이다. 합칠 때 화면 CSS를 새로 만들 필요 없이 이 블록과 아래 이름만 맞추면 된다.
+- 색 변수: `--navy --blue --green --red --orange --bg --border --text --sub --muted` (rehab-hub와 동일 값). 상태 색은 ok=초록 · warn=주황 · err=빨강.
+- 상단바·사이드바: 연한 파랑(#e2eafa / #f1f5fd), 켜진 메뉴 = #d8e4fb. 글꼴 = Pretendard Variable(앱에 번들).
+- 버튼: 기본 흰색, 주요 = 파스텔 파랑(`.btn.primary`, 이 앱의 `button.pri`도 같은 모양). 선택 묶음(`.seg` `.tabs` `.datebtn` `.chip.on`)의 켜진 상태 = #d8e4fb.
+- 카드·표·칩·배지: rehab-hub의 `.card` `table th(#f6f9fd)` `.chip.ok/warn/err/off` `.badge`와 같은 값.
+- 설정형 화면(파일 연결): rehab-hub 설정 화면의 `.st-sec` `.st-row` `.st-line` `.st-btns` `.st-fold` 구조를 그대로 썼다.
+- 알림(`#msg`)은 rehab-hub `.toast`처럼 위쪽 가운데.
+- 이 앱에만 있는 것(합칠 때 옮길 것): `.actionbar`(위 고정 줄) `.exportbar`(아래 고정 내보내기 줄) `.pickpop`(이름 검색 창) `.dropz`(사진 끌어놓기) `table.sheet`(시트 모양 미리보기) `.plan`(배치도).
