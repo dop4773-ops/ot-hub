@@ -1,5 +1,5 @@
 // CCRT 평가일 화면: 초안(시간표 요일·BETTER/COMCOG 제외·회복기 종료/퇴원 전) / 규칙
-Hub.register({ id: 'eval', icon: '🧠', desc: 'CCRT 평가일 — 치료 요일에만, 2개월 루틴 + 회복기 종료 전 + 퇴원 전 (주치의 off 무관)', title: 'CCRT 평가일', render(root) {
+Hub.register({ id: 'eval', icon: '🧠', desc: 'CCRT 평가일 — 치료 요일에만, 2개월 루틴 + 회복기 종료 전 + 퇴원 전 (주치의 off 무관)', title: 'CCRT 평가일', hidden: true, render(root) {
   const { esc, invoke, say, opts, wd, tabsHtml } = Hub, nm = Hub.nextMonth();
   const S = { tab: 'plan', year: nm.year, month: nm.month, info: null, rows: null, counts: null, sort: false };
   const sev = r => r.issues.some(x => x.level === 'err') ? 2 : r.issues.length ? 1 : 0;

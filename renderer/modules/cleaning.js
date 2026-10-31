@@ -111,7 +111,7 @@ Hub.register({ id: 'cleaning', icon: '🧹', desc: '팀 시트 직책·과거 �
   root.onchange = e => {
     const d = e.target.dataset;
     if (d.c != null) { const cs = S.plan.cells, i = +d.c, j = cs.findIndex((c, k) => k !== i && c.name === e.target.value); if (j >= 0) cs[j].name = cs[i].name; cs[i].name = e.target.value; S.big = null; pPlan(); }
-    if (d.sup != null) S.big.support[d.sup] = e.target.value;
+    if (d.bc != null) { const c = S.big.cells[+d.bc]; c.name = e.target.value; c.from = c.name ? '지원' : (c.vacated ? '비움' : '신규'); pBig(); }
     if (d.air != null) S.big.airFilters[d.air].who = e.target.value;
   };
   async function save2() {
@@ -124,17 +124,25 @@ Hub.register({ id: 'cleaning', icon: '🧹', desc: '팀 시트 직책·과거 �
   /* ④ 대청소 */
   function pBig() {
     if (!S.plan) { $p().innerHTML = '<div class="warn">먼저 ③에서 평일 배정을 만드세요. 대청소는 그 배정을 이어받습니다.</div>'; return; }
-    const B = S.big, ppl = active(), cells = S.plan.cells;
-    $p().innerHTML = `<div class="mute">대청소 = 평일 배정 그대로 + 도구장 정리/소독 담당 추가. 소독 담당이 맡던 평일 칸은 지원배치가 필요합니다.</div>
-    <div class="row"><button id="pick" class="pri">${B ? '다시 뽑기' : '소독 담당 뽑기'} (${FR().toolCabinetN}명)</button></div>
+    const B = S.big, ppl = active();
+    const open = B ? B.cells.map((c, i) => i).filter(i => B.cells[i].from === '신규' || B.cells[i].from === '비움' || B.cells[i].from === '지원') : [];
+    const hold = i => ({ '신규': '대청소에만 있는 칸', '비움': `소독 담당이라 비움 (원래 ${B.cells[i].vacated})`, '지원': '' })[B.cells[i].from] || '';
+    $p().innerHTML = `<div class="mute">대청소 시트는 원본 '대청소' 시트의 칸 구성으로 만듭니다. 평일과 같은 구역·역할 칸은 평일 담당자를 이어받고,
+    <b>도구장 소독 담당</b>(${FR().toolCabinetN}명)이 따로 추가됩니다. <b>지원배치</b> = 소독 담당으로 뽑힌 사람이 원래 맡던 칸, 그리고 대청소에만 있는 칸(보바스매트 등)을 채울 사람을 뜻하며,
+    아무 칸도 안 맡은 여유 인원이 있으면 자동으로 추천합니다(아래에서 바꿀 수 있어요).</div>
+    <div class="row"><button id="pick" class="pri">${B ? '다시 뽑기' : '소독 담당 뽑기'}</button>
+      <label><input type="checkbox" id="airOn" ${B && B.airOn === false ? '' : 'checked'}> 에어컨 필터 청소 포함(원본 대청소 시트 오른쪽 목록)</label></div>
     ${B ? `<h2>도구장 정리 / 도구 소독</h2><div class="chips">${B.tool.map(n => `<span class="chip">${esc(n)}</span>`).join('')}</div>
-    <h2>지원배치가 필요한 평일 칸 (${B.vacatedIdx.length})</h2>${B.vacatedIdx.length ? `<table>${B.vacatedIdx.map(i => `<tr class="vac"><td>${esc(cells[i].zone)} / ${esc(cells[i].role)}</td><td class="mute">원래 ${esc(cells[i].name)}</td>
-    <td><select data-sup="${i}"><option value="">(미정)</option>${opts(ppl.filter(p => !B.tool.includes(p)), B.support[i])}</select></td></tr>`).join('')}</table>` : '<div class="mute">비는 칸이 없습니다.</div>'}
-    <h2>에어컨 필터 청소</h2><table>${B.airFilters.map((a, i) => `<tr><td>${esc(a.place)}</td><td>${a.n}개</td><td><select data-air="${i}"><option value="">(미정)</option>${opts(ppl, a.who)}</select></td></tr>`).join('')}</table>
+    <h2>지원배치가 필요한 칸 (${open.length})</h2>${open.length ? `<table>${open.map(i => `<tr class="vac"><td>${esc(B.cells[i].zone)} / ${esc(B.cells[i].role)}</td><td class="mute">${esc(hold(i))}</td>
+    <td><select data-bc="${i}"><option value="">(미정)</option>${opts(ppl.filter(p => !B.tool.includes(p)), B.cells[i].name)}</select></td></tr>`).join('')}</table>` : '<div class="mute">비는 칸이 없습니다.</div>'}
+    ${B.spare.length ? `<div class="mute">남는 여유 인원: ${B.spare.map(esc).join(', ')}</div>` : ''}
+    <h2>대청소 전체 배정 (${B.cells.length}칸)</h2><table>${B.cells.map(c => `<tr><td>${esc(c.zone)}</td><td>${esc(c.role)}</td><td>${c.name ? esc(c.name) : '<span class="vacn">지원 필요</span>'}</td></tr>`).join('')}</table>
+    ${B.airOn === false ? '' : `<h2>에어컨 필터 청소</h2><table>${B.airFilters.map((a, i) => `<tr><td>${esc(a.place)}</td><td>${a.n}개</td><td><select data-air="${i}"><option value="">(미정)</option>${opts(ppl, a.who)}</select></td></tr>`).join('')}</table>`}
     <div class="row" style="margin-top:14px">③의 시트 이름·날짜로 평일표와 <b>대청소</b> 시트가 함께 저장됩니다. <button id="save2" class="pri">새 엑셀로 저장</button></div>` : ''}`;
   }
   handlers.push(async t => {
-    if (t.id === 'pick') { const r = await invoke('cleaning:big', { floor: S.floor, cells: S.plan.cells, useSheets: useNames(), seed: Date.now() % 1e6 }); S.big = { ...r, support: {} }; pBig(); }
+    if (t.id === 'pick') { S.big = await invoke('cleaning:big', { floor: S.floor, cells: S.plan.cells, people: active(), useSheets: useNames(), seed: Date.now() % 1e6 }); pBig(); }
+    if (t.id === 'airOn' && S.big) { S.big.airOn = t.checked; pBig(); }
     if (t.id === 'save2') save2();
   });
 
@@ -149,18 +157,18 @@ Hub.register({ id: 'cleaning', icon: '🧹', desc: '팀 시트 직책·과거 �
     if (!S.plan) { $p().innerHTML = '<div class="warn">먼저 ③에서 평일 배정을 만드세요. 배치도에 담당자를 올려 보여 드립니다.</div>'; return; }
     $p().innerHTML = '<div class="mute">배치도를 읽는 중…</div>'; if (!S.fp) S.fp = await invoke('cleaning:floorplan', S.floor);
     const fp = S.fp; if (!fp) { $p().innerHTML = S.floor === '3층' ? '<div class="mute">3층 배치도는 청소분담표 파일에 없습니다(Sheet1은 10층 배치도). 3층 배치도를 시트로 넣어 주시면 같은 방식으로 보여 드릴 수 있어요.</div>' : '<div class="warn">청소분담표 파일에서 배치도(Sheet1)를 찾지 못했습니다.</div>'; return; }
-    const big = !!S.big && S.mapMode === 'big', cells = S.plan.cells, vac = new Set(big ? S.big.vacatedIdx : []);
+    const big = !!S.big && S.mapMode === 'big', cells = big ? S.big.cells : S.plan.cells, vac = new Set(cells.map((c, i) => c.name ? -1 : i));
     const by = {}; cells.forEach((c, i) => { (by[zoneKeyOf(c.zone)] ??= []).push({ ...c, i }); });
     const claimed = new Map(), used = new Set();
     fp.blocks.forEach((b, bi) => { for (const m of MAP) { if (used.has(m.zone + '|' + (m.only || '')) || !m.re.test(b.text) || (m.not && m.not.test(b.text))) continue; claimed.set(bi, m); used.add(m.zone + '|' + (m.only || '')); break; } });
     const lines = m => { const g = {}; (by[m.zone] || []).forEach(c => { if (m.only && !m.only.test(c.role)) return; if (m.not && m.not.test(c.role)) return; if (m.zone === '작업치료실' && !m.only && /창틀/.test(c.role)) return;
-      const nm = vac.has(c.i) ? `<span class="vacn">${esc((S.big.support || {})[c.i] || '지원 필요')}</span>` : esc(c.name); (g[c.role || '담당'] ??= []).push(nm); });
+      const nm = vac.has(c.i) ? '<span class="vacn">지원 필요</span>' : esc(c.name); (g[c.role || '담당'] ??= []).push(nm); });
       return Object.entries(g).map(([r, ns]) => `<div class="pl"><span class="pr">${esc(r.replace(/\(.*\)/, ''))}</span>${ns.join(' · ')}</div>`).join(''); };
     const placed = new Set([...claimed.values()].map(m => m.zone));
     const rest = Object.keys(by).filter(z => !placed.has(z));
     const sum = fp.cols.reduce((a, b) => a + b, 0);
     $p().innerHTML = `<div class="row"><div class="seg" id="mapSeg"><button data-m="week" class="${!big ? 'active' : ''}">평일</button><button data-m="big" class="${big ? 'active' : ''}">대청소</button></div>
-      <span class="mute">${big ? '대청소: 도구장 소독 담당이 추가되고, 비는 평일 칸은 지원 배치로 표시됩니다.' : '평일 청소 담당자를 배치도 위에 보여 줍니다.'} (시트의 배치도를 그대로 그렸습니다)</span></div>
+      <span class="mute">${big ? '대청소: 원본 대청소 시트의 칸 구성(보바스매트 등)이며 도구장 소독 담당이 추가됩니다.' : '평일 청소 담당자를 배치도 위에 보여 줍니다.'} (시트의 배치도를 그대로 그렸습니다)</span></div>
       ${S.mapMode === 'big' && !S.big ? '<div class="warn">④에서 소독 담당을 먼저 뽑으면 여기에 같이 나옵니다.</div>' : ''}
       <div class="plan" style="grid-template-columns:${fp.cols.map(w => `minmax(0,${w}fr)`).join(' ')};grid-template-rows:${fp.rows.map(h => h + 'px').join(' ')};aspect-ratio:${sum}/${fp.rows.reduce((a, b) => a + b, 0)}">
       ${fp.blocks.map((b, bi) => { const m = claimed.get(bi), has = m && lines(m);

@@ -1,6 +1,6 @@
 {
   "name": "ot-hub",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "작업치료팀 업무자동화 — 청소분담표·평가일 관리·신환 평가명단·SCI 명단·출근부·도구 목록",
   "main": "main.js",
   "scripts": {
@@ -16,7 +16,8 @@
   "dependencies": {
     "electron-updater": "^6.8.11",
     "exceljs": "^4.4.0",
-    "sql.js": "^1.11.0"
+    "sql.js": "^1.11.0",
+    "tesseract.js": "^7.0.0"
   },
   "author": "",
   "license": "UNLICENSED",
@@ -31,7 +32,8 @@
       "renderer/**/*",
       "build/icon.png",
       "build/icon.ico",
-      "package.json"
+      "package.json",
+      "assets/**/*"
     ],
     "directories": {
       "output": "dist"
@@ -49,7 +51,12 @@
     "nsis": {
       "oneClick": true,
       "artifactName": "ot-hub-setup-${version}.exe"
-    }
+    },
+    "asarUnpack": [
+      "assets/ocr/**",
+      "node_modules/tesseract.js-core/**",
+      "node_modules/tesseract.js/**"
+    ]
   },
   "repository": {
     "type": "git",

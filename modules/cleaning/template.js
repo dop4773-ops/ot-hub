@@ -67,13 +67,13 @@ async function buildWorkbook({ templateFile, floor, sheetName, date, cells, fixe
   for (const w of wb.worksheets.filter(x => !keep.includes(x))) wb.removeWorksheet(w.id);      // 이름이 겹치는 옛 시트(예: 같은 이름의 빈 분기 시트)부터 없앤다
   quarter.name = sheetName;
   if (wantBig) {
-    const vac = new Set(big.vacatedIdx), tool = { zone: '도구장 정리 / 도구 소독', rows: big.tool.map(n => ({ role: '', name: n })) };
-    const groups = [{ ...tool, rows: tool.rows.map(x => ({ role: '도구장 정리 / 도구 소독', name: x.name })) }].concat(groupsOf(cells, vac, big.support), fx);
+    const vac = new Set(big.cells.map((c, i) => c.name ? -1 : i));       // 이름이 안 정해진 칸 = 지원 배치 필요
+    const groups = [{ zone: '도구장 정리 / 도구 소독', rows: big.tool.map(n => ({ role: '도구장 정리 / 도구 소독', name: n })) }].concat(groupsOf(big.cells, vac), fx);
     fillTable(bigSheet, { groups, title: retitle, date: date || null, footerText: undefined });
     const J = 10, head = bigSheet.getCell(7, J), item = styleOf(bigSheet.getCell(8, J));
     for (let r = 8; r <= 20; r++) { bigSheet.getCell(r, J).value = null; }
     big.airFilters.forEach((a, i) => { const c = bigSheet.getCell(8 + i, J); paint(c, item); c.value = `${a.place} ${a.n > 1 ? '1-' + a.n : a.n}${a.who ? ' · ' + a.who : ''}`; });
-    head.value = '에어컨 필터 청소';
+    head.value = big.airFilters.length ? '에어컨 필터 청소' : null;
     if (date) { const m = String(date).match(/(\d{4})-(\d{2})-(\d{2})/); if (m) { const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])); const f = bigSheet.getCell(7, 6); f.value = mapRich(f.value, s => s.replace(/\d{1,2}\/\d{1,2}\([가-힣]\)/, `${+m[2]}/${+m[3]}(${WD[d.getUTCDay()]})`)); } }
     bigSheet.name = `${sheetName} 대청소`;
   }

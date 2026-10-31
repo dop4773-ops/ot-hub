@@ -1,7 +1,7 @@
 // 출근부 — 원본 파일(26년_N월_출근부_자동화.xlsx)을 그대로 열어 필요한 칸만 고쳐 저장한다.
 // 글꼴·너비·테두리·가로 인쇄(A4 가로, 쪽 나눔, 인쇄 범위)·일요일 회색 음영(조건부 서식)이 전부 원본 그대로 남도록 엑셀 파일 안쪽(XML)을 직접 편집한다.
 //   · 설정!B1/B2 = 연·월, 직원명단!B2~ = 이름(직급·경력순) → 원본의 수식이 제목·이름·날짜·요일을 알아서 채운다
-//   · 추가한 서식: 공휴일 = 그 날짜 전체 회색(일요일과 같은 색), 날짜 칸 글자색 = 토 파랑 · 일/공휴일 빨강
+//   · 추가한 서식: 날짜 칸 글자색 = 토 파랑 · 일요일/공휴일 빨강. 회색 칠은 원본 그대로 일요일만(공휴일은 칠하지 않는다)
 //   · 층 이름은 제목 수식의 '10층'을 고른 층으로 바꾼다. 쓰지 않는 블록(6명 단위)은 인쇄 범위·쪽 나눔에서 뺀다.
 const fs = require('fs'), JSZip = require('jszip');
 const PER = 6, BLOCK_W = 13, MAX_BLOCKS = 9;
@@ -37,7 +37,6 @@ function cfRules(year, month, first, last, holidays, dateCols, whole, rowTo, idB
   const RED = '<font><color rgb="FFDC2626"/></font>', BLUE = '<font><color rgb="FF2563EB"/></font>';
   const dc = dateCols.map(c => `${c}6:${c}${rowTo}`).join(' ');
   let out = '', p = 20;
-  if (holF) out += dx({ f: holF, dxf: GRAY }, `A6:${whole}${rowTo}`, idBase + 1, p++);
   out += dx({ f: holF ? `OR(${wd(1)},${holF})` : wd(1), dxf: RED }, dc, idBase + 2, p++);
   out += dx({ f: wd(7), dxf: BLUE }, dc, idBase + 3, p++);
   return out;

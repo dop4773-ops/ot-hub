@@ -12,11 +12,15 @@ async function buildFromTemplate({ templateFile, month, rows }) {
   const proto = Array.from({ length: 5 }, (_, i) => sty(ws.getCell(3, i + 1))), h = ws.getRow(3).height;
   const last = Math.max(ws.rowCount, rows.length + 2);
   Object.values(ws._merges).map(m => m.model).filter(m => m.top >= 3).forEach(m => ws.unMergeCells(m.top, m.left, m.bottom, m.right));
-  for (let r = 3; r <= last; r++) for (let c = 1; c <= 8; c++) { const cell = ws.getCell(r, c); cell.value = null; if (r > rows.length + 2) cell.style = {}; }
-  rows.forEach((x, i) => {
-    const r = 3 + i; [i + 1, Number(x.doctor) || x.doctor, Number(x.room) || x.room, x.name, x.memo || null].forEach((v, c) => { const cell = ws.getCell(r, c + 1); paint(cell, proto[c]); cell.value = v; });
+  let padTo = 3; for (let r = 3; r <= last; r++) if (ws.getCell(r, 1).border && ws.getCell(r, 1).border.top) padTo = r;      // 원본 표가 테두리로 그려진 마지막 줄(빈 줄 포함)
+  padTo = Math.max(padTo, rows.length + 2);
+  for (let r = 3; r <= last; r++) for (let c = 1; c <= 8; c++) { const cell = ws.getCell(r, c); cell.value = null; if (r > padTo) cell.style = {}; }
+  const box = proto[0].border;                                             // 원본 표 칸의 테두리(사방 얇은 선) — 일부 칸만 선이 빠진 원본을 그대로 베끼지 않고 전부 같게 맞춘다
+  for (let r = 3; r <= padTo; r++) {
+    const x = rows[r - 3], vals = x ? [r - 2, Number(x.doctor) || x.doctor, Number(x.room) || x.room, x.name, x.memo || null] : [null, null, null, null, null];
+    vals.forEach((v, c) => { const cell = ws.getCell(r, c + 1); paint(cell, proto[c]); cell.border = clone(box); cell.value = v; });
     if (h) ws.getRow(r).height = h;
-  });
+  }
   const t = ws.getCell(1, 1); t.value = plain(t.value).replace(/^\d{1,2}월/, `${month}월`);
   for (const other of wb.worksheets.filter(x => x !== ws)) wb.removeWorksheet(other.id);
   ws.name = `${month}월`;

@@ -8,7 +8,7 @@ const { loadStaff } = require('../../shared/staff');
 const { loadFloors } = require('../attendance');
 const defaults = require('./slots.json');
 
-const floorDefaults = () => ({ '10층': { slots: defaults.weekday, fixed: defaults.fixed, toolCabinetN: defaults.bigClean.toolCabinetN, airFilters: defaults.bigClean.airFilters },
+const floorDefaults = () => ({ '10층': { slots: defaults.weekday, fixed: defaults.fixed, toolCabinetN: defaults.bigClean.toolCabinetN, airFilters: defaults.bigClean.airFilters, bigSlots: defaults.bigClean.slots },
   '3층': JSON.parse(JSON.stringify(defaults.floor3)) });
 const defaultRules = () => ({ floors: floorDefaults(), zoneWeight: 30, zoneNovelty: 3, excludeRanks: ['실장', '팀장'], excludeNames: [] });
 const autoUse = r => !r.warn && r.rows.length >= 20 && r.rows.length <= 35;      // 구조가 다른 옛 시트는 기본 제외
@@ -47,15 +47,15 @@ module.exports = {
       const cnt = countsOf(h), zc = zoneCounts(h);
       return { cells: out.cells, spare: out.spare, counts: Object.fromEntries(people.map(p => [p, cnt[p] || {}])), zones: Object.fromEntries(people.map(p => [p, zc[p] || {}])) };
     });
-    ipc.handle('cleaning:big', (_, { floor, cells, useSheets, seed }) => {
-      const fr = rules().floors[floor], b = bigClean({ weekdayCells: cells, history: rowsOf(useSheets), n: fr.toolCabinetN, airFilters: fr.airFilters, seed });
-      return { tool: b.tool, airFilters: b.airFilters, vacatedIdx: b.vacated.map(c => cells.indexOf(c)) };
+    ipc.handle('cleaning:big', (_, { floor, cells, people, useSheets, seed }) => {
+      const fr = rules().floors[floor];
+      return bigClean({ weekdayCells: cells, bigSlots: fr.bigSlots, people, history: rowsOf(useSheets), n: fr.toolCabinetN, airFilters: fr.airFilters, seed });
     });
     ipc.handle('cleaning:save', async (_, { floor, sheetName, date, cells, big }) => {
       const r = await dialog.showSaveDialog({ defaultPath: `청소분담표_${floor}_${sheetName}.xlsx`, filters: [{ name: '엑셀', extensions: ['xlsx'] }] });
       if (r.canceled) return null;
       const fr = rules().floors[floor];
-      const wb = await buildWorkbook({ templateFile: settings.files().cleaning, floor, sheetName, date, cells, fixed: fr.fixed, big: big && { tool: big.tool, airFilters: big.airFilters, vacatedIdx: big.vacatedIdx, support: big.support || {} } });
+      const wb = await buildWorkbook({ templateFile: settings.files().cleaning, floor, sheetName, date, cells, fixed: fr.fixed, big: big && { tool: big.tool, cells: big.cells, airFilters: big.airOn === false ? [] : big.airFilters } });
       await wb.xlsx.writeFile(r.filePath); return r.filePath;
     });
   },

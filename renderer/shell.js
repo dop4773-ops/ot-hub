@@ -32,6 +32,12 @@ const Hub = (() => {
       downloading: [`새 버전 ${u.latest || ''} 받는 중 ${u.percent || 0}%`, 'stale'], ready: [`↻ 새 버전 ${u.latest} 설치 — 클릭해 재시작`, 'stale'], error: [`v${u.version} · 업데이트 확인 실패`, 'stale'] }[u.state] || [`v${u.version}`, ''];
     p.textContent = m[0]; p.className = 'pill ' + m[1]; p.style.cursor = u.state === 'ready' ? 'pointer' : 'default'; p.title = u.message || '';
   }
+  // 다른 모듈 화면을 이 안의 한 칸(el)에 끼워 넣는다(평가일 관리 안의 CCRT 탭 등). 안쪽 이벤트가 바깥 화면 핸들러로 번지지 않게 막는다.
+  function mount(id, el) {
+    const m = mods.find(x => x.id === id); el.innerHTML = '';
+    const box = document.createElement('div'); el.appendChild(box); m.render(box);
+    for (const t of ['click', 'change', 'input']) box.addEventListener(t, e => e.stopPropagation());
+  }
   async function go(id) {
     state.cur = id; await reload();
     document.querySelectorAll('#nav .nav-item').forEach(b => b.classList.toggle('active', b.dataset.id === id));
@@ -41,7 +47,7 @@ const Hub = (() => {
   async function start() {
     state.roles = await invoke('app:roles'); await reload();
     const nav = document.getElementById('nav');
-    nav.innerHTML = mods.map(m => (m.sep ? '<div class="nav-sep"></div>' : '') + `<div class="nav-item" data-id="${m.id}" title="${esc(m.title)}"><span class="ni">${m.icon || '•'}</span><span class="nl">${esc(m.title)}</span></div>`).join('');
+    nav.innerHTML = mods.filter(m => !m.hidden).map(m => (m.sep ? '<div class="nav-sep"></div>' : '') + `<div class="nav-item" data-id="${m.id}" title="${esc(m.title)}"><span class="ni">${m.icon || '•'}</span><span class="nl">${esc(m.title)}</span></div>`).join('');
     nav.onclick = e => { const it = e.target.closest('.nav-item'); it && go(it.dataset.id); };
     hub.on('app:update', showUpdate); invoke('app:updateState').then(showUpdate);
     document.getElementById('verPill').onclick = () => { if (upd.state === 'ready') invoke('app:updateInstall'); };
@@ -49,5 +55,5 @@ const Hub = (() => {
     const d = new Date(); document.getElementById('todayDate').textContent = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} (${WD[d.getDay()]})`;
     go(mods[0].id);
   }
-  return { register, start, upd, showUpdate, go, reload, esc, wd, pad, opts, say, invoke, nextMonth, files, needFiles, missingBox, tabsHtml, state };
+  return { register, mount, start, upd, showUpdate, go, reload, esc, wd, pad, opts, say, invoke, nextMonth, files, needFiles, missingBox, tabsHtml, state };
 })();

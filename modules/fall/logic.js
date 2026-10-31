@@ -98,7 +98,6 @@ function generate({ year, month, floor = '10층', roster, history = {}, holidays
     const special = wk.days.filter(d => d.wd === '토' || d.holiday), satNames = {};
     for (const d of special) {
       let sheet = sat[d.date], team = sheet ? sheet.team : teams[d.date] || (d.wd === '토' ? rot : null), source = sheet ? '토요일 시트' : teams[d.date] ? '캘린더' : '순환(추정)';
-      if (!sheet && team) { const prev = Object.keys(sat).filter(k => sat[k].team === team && k < d.date).sort().pop(); if (prev) { sheet = sat[prev]; source += ` · ${sat[prev].sheet} 시트의 근무자·3층 근무자 참고`; } }   // 시트가 없는 날은 같은 팀의 가장 최근 시트를 본뜬다
       let people = [];
       if (sheet) people = sheet.people.filter(p => !p.extra && !exclude.has(p.name)).map(p => ({ name: p.name, floor3: p.red >= redMin, red: p.red }));
       else if (team) people = roster.sat[team].filter(n => !exclude.has(n)).map(n => ({ name: n, floor3: false, red: 0 }));

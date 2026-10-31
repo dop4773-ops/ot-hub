@@ -22,6 +22,11 @@ module.exports = {
       let sheetOff = {}, calendar = null; if (f.eval) { const o = await loadOff(f.eval); sheetOff = o.off; calendar = { year: o.year, month: o.month }; }
       return { ...c, pot: pot.files, potCount: Object.keys(pot.byName).length, sheetOff, calendar, emrFiles: settings.emr().length, hasStatus: !!f.status };
     });
+    ipc.handle('roster:ocrOff', async (_, { year, month }) => {          // 주치의 off 달력 사진 → 후보 목록(사람이 확인 후 추가)
+      const r = await dialog.showOpenDialog({ title: '주치의 off 달력 사진', properties: ['openFile'], filters: [{ name: '사진', extensions: ['png', 'jpg', 'jpeg', 'bmp'] }] });
+      if (r.canceled) return null;
+      try { const o = await require('./ocr').readCalendar({ file: r.filePaths[0], year, month }); const fs = require('fs'), f = r.filePaths[0], mime = /png$/i.test(f) ? 'png' : /bmp$/i.test(f) ? 'bmp' : 'jpeg'; return { ...o, image: fs.statSync(f).size < 4e6 ? `data:image/${mime};base64,${fs.readFileSync(f).toString('base64')}` : '' }; } catch (e) { return { error: e.message }; }
+    });
     ipc.handle('roster:saveCfg', (_, c) => { settings.setMod('roster', { ...settings.mod('roster'), ...c }); return true; });
     ipc.handle('roster:run', async (_, { from, to, year, month, scope }) => {
       const f = settings.files(); if (!f.status) return { error: '작업치료현황 파일을 연결하세요' };

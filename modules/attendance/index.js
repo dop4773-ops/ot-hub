@@ -3,6 +3,8 @@ const { loadStaff, sortSeniority } = require('../../shared/staff');
 const { txt, open } = require('../../shared/xl');
 const { build, fixedHolidays } = require('./build');
 const tpl = require('./template');
+const path = require('path');
+const BUNDLED = path.join(__dirname, '..', '..', 'assets', 'attendance-template.xlsx');      // 앱에 넣어 둔 원본 양식(직원 이름 없음)
 const fs = require('fs');
 
 // '평일시간표(원본)': 2행 '10층 치료실'/'3층 치료실'(병합 범위가 열 범위), 4행 치료사 이름
@@ -39,9 +41,8 @@ module.exports = {
     ipc.handle('attendance:save', async (_, { year, month, floor, names, holidays, perBlock, workWeekend }) => {
       const r = await dialog.showSaveDialog({ defaultPath: `${year}년_${month}월_${floor}_출근부.xlsx`, filters: [{ name: '엑셀', extensions: ['xlsx'] }] });
       if (r.canceled) return null;
-      const t = settings.files().attendance;
-      if (t) { fs.writeFileSync(r.filePath, await tpl.build({ templateFile: t, year, month, floor, names, holidays })); return r.filePath; }          // 원본 서식 그대로(권장)
-      await build({ year, month, floorLabel: floor, names, holidays, perBlock, workWeekend }).xlsx.writeFile(r.filePath); return r.filePath;     // 원본이 없으면 간이 서식
+      const t = settings.files().attendance && fs.existsSync(settings.files().attendance) ? settings.files().attendance : BUNDLED;      // 연결한 원본이 있으면 그것, 없으면 앱에 든 같은 양식
+      fs.writeFileSync(r.filePath, await tpl.build({ templateFile: t, year, month, floor, names, holidays })); return r.filePath;
     });
     ipc.handle('attendance:fixedHolidays', (_, year) => fixedHolidays(year));
   },

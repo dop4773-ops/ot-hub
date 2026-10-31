@@ -16,7 +16,7 @@ const { build } = require('../modules/attendance/template');
   assert.strictEqual((s3.match(/<brk /g) || []).length, 1, '쪽 나눔은 블록 수-1');
   assert.ok(s3.includes('1+INT((ROW()-6)/2)=4'), '공휴일 4일 서식');
   assert.ok(s4.includes('16+INT((ROW()-6)/2)=18'), '16~말일 시트의 공휴일 18일');
-  assert.ok(s3.includes('FFD9D9D9') && s3.includes('FF2563EB') && s3.includes('FFDC2626'));
+  assert.ok(s3.includes('FF2563EB') && s3.includes('FFDC2626'));
   assert.ok(!/<c r="B3"[^>]*>[^<]*<f>/.test(s2));
   // 모든 XML이 올바른 형식인지
   for (const n of Object.keys(z.files).filter(n => /\.xml$|\.rels$/.test(n))) { const x = await get(n); assert.ok(x.startsWith('<?xml') || x.startsWith('<'), n); }

@@ -1,6 +1,6 @@
 // '작업치료실 토요일&공휴일 시간표.xlsx' — 시트 이름 'M.DD(N팀)'이 그날 근무하는 팀, 2행이 근무 치료사 줄.
 //  · 이름 뒤 'OT'가 붙은 사람은 그 팀이 아닌 지원(제외)
-//  · 그 치료사의 환자 칸에 빨간 굵은 테두리가 많으면(기본 8칸 이상) 그날은 3층에서 근무 → 10층 낙상 순회에서 뺀다
+//  · 그 치료사의 환자 칸에 빨간 굵은 테두리가 많으면(기본 5칸 이상 — 시험한 시트에서 3층 근무자는 7~23칸, 다른 용도로 칠한 칸은 1~4칸이었다) 그날은 3층에서 근무 → 10층 낙상 순회에서 뺀다
 const ExcelJS = require('exceljs');
 const { memo } = require('../../shared/cache');
 const SHEET = /^\s*(\d{1,2})\.(\d{1,2})\s*\(.*?([1-3])\s*팀.*\)\s*$/;
@@ -22,4 +22,4 @@ async function parse(file) {
   }
   return out;
 }
-module.exports = { loadSaturdays: f => memo('saturdays', f, () => parse(f)), RED_MIN: 8 };
+module.exports = { loadSaturdays: f => memo('saturdays', f, () => parse(f)), RED_MIN: 5 };
