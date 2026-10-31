@@ -106,5 +106,5 @@ const Hub = (() => {
     const d = new Date(); document.getElementById('todayDate').textContent = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} (${WD[d.getDay()]})`;
     go(mods[0].id);
   }
-  return { register, mount, start, pref, saved, holidayLines, setHolidays, invalidate, navIds, upd, showUpdate, go, reload, esc, wd, pad, opts, say, invoke, nextMonth, files, needFiles, missingBox, tabsHtml, state };
+  return { register, mount, start, refreshStatus: () => status(), pref, saved, holidayLines, setHolidays, invalidate, navIds, upd, showUpdate, go, reload, esc, wd, pad, opts, say, invoke, nextMonth, files, needFiles, missingBox, tabsHtml, state };
 })();

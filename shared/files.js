@@ -31,4 +31,39 @@ function find(dir, role, depth = 0) {
   }
   return out;
 }
-module.exports = { ROLES, find };
+
+// 여러 폴더를 한 번에 훑어 모든 역할의 파일을 찾는다(폴더 안의 폴더까지 maxDepth단계). 같은 역할 파일이 여럿이면 가장 최근에 고친 것을 쓴다(월별 POT는 전부).
+// 백업·휴지통 폴더는 건너뛰고, deadlineMs를 넘기면 거기까지 찾은 것만 돌려준다.
+const SKIP = /^(node_modules|\.tmp|\$recycle\.bin|system volume information|appdata|windows|program files.*|programdata|library)$|백업|backup|휴지통/i;
+function scanAll(roots, { maxDepth = 5, deadlineMs = 25000 } = {}) {
+  const t0 = Date.now(), best = {}, pot = {}, seen = new Set();
+  const roles = Object.entries(ROLES);
+  const walk = (dir, depth) => {
+    if (Date.now() - t0 > deadlineMs || seen.has(dir)) return; seen.add(dir);
+    let ents; try { ents = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of ents) {
+      const n = nfc(e.name), p = path.join(dir, e.name);
+      if (e.isFile()) {
+        if (n.startsWith('~$')) continue; const ext = n.split('.').pop().toLowerCase();
+        for (const [role, r] of roles) {
+          if (!r.exts.includes(ext) || !(r.exact ? n.toLowerCase() === r.key : n.includes(r.key))) continue;
+          let mt = 0; try { mt = fs.statSync(p).mtimeMs; } catch { /* 무시 */ }
+          if (r.multi) { if (!pot[n] || mt > pot[n].mt) pot[n] = { p, mt }; } else if (!best[role] || mt > best[role].mt) best[role] = { p, mt };
+        }
+      } else if (e.isDirectory() && depth < maxDepth && !n.startsWith('.') && !SKIP.test(n)) walk(p, depth + 1);
+    }
+  };
+  for (const r of roots) walk(r, 0);
+  return { files: Object.fromEntries(Object.entries(best).map(([k, v]) => [k, v.p])), pot: Object.values(pot).map(v => v.p), ms: Date.now() - t0, timedOut: Date.now() - t0 > deadlineMs };
+}
+// 이 PC에서 파일이 있을 만한 기본 폴더들(맥·윈도우 공통) — 클라우드 동기화 폴더(구글 드라이브·원드라이브)를 먼저
+function defaultRoots() {
+  const os = require('os'), home = os.homedir(), out = [], add = d => { try { if (fs.statSync(d).isDirectory()) out.push(d); } catch { /* 없음 */ } };
+  const kids = d => { try { return fs.readdirSync(d).map(x => path.join(d, x)); } catch { return []; } };
+  kids(path.join(home, 'Library', 'CloudStorage')).forEach(add);
+  kids(home).filter(x => /^(OneDrive|Google Drive|구글 드라이브)/i.test(path.basename(x))).forEach(add);
+  if (process.platform === 'win32') for (const L of 'GHDEFIJK') { add(`${L}:\\내 드라이브`); add(`${L}:\\My Drive`); add(`${L}:\\`); }
+  for (const d of ['Desktop', '바탕 화면', 'Documents', '문서', 'Downloads', '다운로드']) add(path.join(home, d));
+  return [...new Set(out)];
+}
+module.exports = { ROLES, find, scanAll, defaultRoots };
