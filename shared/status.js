@@ -3,7 +3,9 @@ const { txt, rm, open } = require('./xl');
 const day = c => { const v = c && c.value; const x = v && v.result !== undefined ? v.result : v; return x instanceof Date && !isNaN(x) ? x.toISOString().slice(0, 10) : null; };
 const argb = c => { const f = c && c.fill && c.fill.fgColor; return f && f.argb ? f.argb.toUpperCase() : ''; };
 
-async function loadStatus(file) {
+const { memo } = require('./cache');
+const loadStatus = file => memo('status', file, () => parseStatus(file));
+async function parseStatus(file) {
   const ws = (await open(file)).getWorksheet('현황(회복기)');
   if (!ws) throw new Error("'현황(회복기)' 시트를 찾지 못했습니다");
   const out = [];

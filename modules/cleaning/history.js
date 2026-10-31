@@ -1,5 +1,7 @@
 // 과거 분기 시트 → [{sheet, zone, role, name, category}] (화면/Electron과 무관한 순수 로직)
 const ExcelJS = require('exceljs');
+const { memo } = require('../../shared/cache');
+const { open } = require('../../shared/xl');
 
 const SHEET_RE = /^(20\d\d\.\d\d|\d분기)/;
 const NOT_NAME = /^(X|예비|지원|확인|담당선생님)$/;
@@ -48,9 +50,9 @@ function parseSheet(ws) {
   return { rows };
 }
 
-async function loadHistory(file) {
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.readFile(file);
+const loadHistory = file => memo('history', file, () => parseHistory(file));
+async function parseHistory(file) {
+  const wb = await open(file);
   const out = {};
   for (const ws of wb.worksheets) if (SHEET_RE.test(ws.name)) out[ws.name] = parseSheet(ws);
   return out;

@@ -3,7 +3,9 @@
 const fs = require('fs');
 let SQL = null;
 
-async function loadDischarges(dbPath) {
+const { memo } = require('./cache');
+const loadDischarges = dbPath => dbPath && fs.existsSync(dbPath) ? memo('discharges', dbPath, () => readDischarges(dbPath)) : Promise.resolve({});
+async function readDischarges(dbPath) {
   if (!dbPath || !fs.existsSync(dbPath)) return {};
   SQL ??= await require('sql.js')();
   const db = new SQL.Database(fs.readFileSync(dbPath));

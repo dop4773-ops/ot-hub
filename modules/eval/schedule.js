@@ -1,5 +1,7 @@
 // '2026 재활평가관리 OT통합.xlsx'의 평가일정 시트 → 환자 목록 + 당직의/오프 달력
 const ExcelJS = require('exceljs');
+const { memo } = require('../../shared/cache');
+const { open } = require('../../shared/xl');
 const { iso, fromCell } = require('../../shared/dates');
 
 const txt = c => { const v = c && c.value; if (v == null) return ''; if (v.richText) return v.richText.map(t => t.text).join(''); if (v.result != null) return String(v.result); return String(v); };
@@ -41,8 +43,9 @@ function parseOffCalendar(ws) {
   return { year, month, off };
 }
 
-async function loadSchedule(file) {
-  const wb = new ExcelJS.Workbook(); await wb.xlsx.readFile(file);
+const loadSchedule = file => memo('schedule', file, () => parseSchedule(file));
+async function parseSchedule(file) {
+  const wb = await open(file);
   const ws = wb.getWorksheet('평가일정'); if (!ws) throw new Error("'평가일정' 시트를 찾지 못했습니다");
   return { patients: parsePatients(ws), calendar: parseOffCalendar(ws) };
 }
@@ -67,8 +70,9 @@ function parseCycle(ws, kind) {
   }
   return out;
 }
-async function loadCycles(file) {
-  const wb = new ExcelJS.Workbook(); await wb.xlsx.readFile(file);
+const loadCycles = file => memo('cycles', file, () => parseCycles(file));
+async function parseCycles(file) {
+  const wb = await open(file);
   return { ccrt: parseCycle(wb.getWorksheet('CCRT명단'), 'ccrt'), sanjae: parseCycle(wb.getWorksheet('산재명단'), 'sanjae') };
 }
 module.exports.loadCycles = loadCycles; module.exports.parseCycle = parseCycle;

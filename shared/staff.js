@@ -3,7 +3,9 @@ const { txt, open } = require('./xl');
 
 const RANKS = ['실장', '팀장', '부팀장', '주임', '사원'];
 
-async function loadStaff(file) {
+const { memo } = require('./cache');
+const loadStaff = file => memo('staff', file, () => parseStaff(file));
+async function parseStaff(file) {
   const ws = (await open(file)).getWorksheet('팀');
   if (!ws) throw new Error("'팀' 시트를 찾지 못했습니다");
   const team = {};                                            // 이름 → 팀 번호 (위쪽 표: A열에 '1팀' 같은 값)

@@ -1,10 +1,12 @@
 // '2026 재활평가관리' 평가일정 시트 오른쪽 당직의/오프 달력(U:AA) → { 'YYYY-MM-DD': [{doctor, pm}] } 
-const ExcelJS = require('exceljs');
+const { open } = require('./xl');
+const { memo } = require('./cache');
 const { iso } = require('./dates');
 const txt = c => { const v = c && c.value; if (v == null) return ''; if (v.richText) return v.richText.map(t => t.text).join(''); if (v.result != null) return String(v.result); return String(v); };
 
-async function loadOff(file) {
-  const ws = (await new ExcelJS.Workbook().xlsx.readFile(file)).getWorksheet('평가일정');
+const loadOff = file => memo('off', file, () => parseOff(file));
+async function parseOff(file) {
+  const ws = (await open(file)).getWorksheet('평가일정');
   const year = +txt(ws.getCell('Z3')), month = +txt(ws.getCell('AA3')), off = {};
   if (!year || !month) return { year, month, off };
   for (let r = 5; r <= 30; r += 2) {

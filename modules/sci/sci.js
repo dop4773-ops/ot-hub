@@ -1,6 +1,8 @@
 // SCI 비회복기 월별 명단 = 작업치료현황의 '입원/재입원' 환자 중 회복기가 끝난 척수손상(구분이 '척수손상'에서 '일반'으로 바뀐 사람) ∧ 평가항목에 SCIM.
 // (실제 10→11월 명단 13명을 이 규칙이 그대로 재현함을 core/sci.test.js로 확인)
 const ExcelJS = require('exceljs');
+const { memo } = require('../../shared/cache');
+const { open } = require('../../shared/xl');
 const txt = c => { const v = c && c.value; if (v == null) return ''; if (v.richText) return v.richText.map(t => t.text).join(''); if (v.result != null) return String(v.result); return String(v); };
 const rm = v => (String(v).match(/\d/) || [''])[0];
 const day = c => { const v = c && c.value; return v instanceof Date ? v.toISOString().slice(0, 10) : null; };
@@ -19,8 +21,9 @@ async function loadStatus(file) {
 }
 
 // 2026 재활평가관리 '평가일정': F이름 G평가항목
-async function loadScimNames(file) {
-  const ws = (await new ExcelJS.Workbook().xlsx.readFile(file)).getWorksheet('평가일정');
+const loadScimNames = file => memo('scim', file, () => parseScim(file));
+async function parseScim(file) {
+  const ws = (await open(file)).getWorksheet('평가일정');
   const set = new Set();
   for (let r = 3; r <= ws.rowCount; r++) { const n = txt(ws.getCell(r, 6)).trim(); if (n && /SCIM/.test(txt(ws.getCell(r, 7)))) set.add(n); }
   return set;
@@ -28,7 +31,7 @@ async function loadScimNames(file) {
 
 // 이전 달 명단 파일 시트: B의사 C병실 D성명 E비고 → 순서 유지에 사용
 async function loadPrevList(file, sheetName) {
-  const ws = (await new ExcelJS.Workbook().xlsx.readFile(file)).getWorksheet(sheetName);
+  const ws = (await open(file)).getWorksheet(sheetName);
   if (!ws) return [];
   const out = [];
   for (let r = 3; r <= ws.rowCount; r++) { const n = txt(ws.getCell(r, 4)).trim(); if (n) out.push({ name: n, doctor: rm(txt(ws.getCell(r, 2))), room: txt(ws.getCell(r, 3)).trim(), memo: txt(ws.getCell(r, 5)).trim() }); }
@@ -62,5 +65,5 @@ function buildList({ status, scim, nonRecovery = null, prev = [], asOf, recovery
 
 module.exports = { loadStatus, loadScimNames, loadPrevList, buildList };
 
-async function sheetNames(file) { return (await new ExcelJS.Workbook().xlsx.readFile(file)).worksheets.map(w => w.name); }
+async function sheetNames(file) { return (await open(file)).worksheets.map(w => w.name); }
 module.exports.sheetNames = sheetNames;

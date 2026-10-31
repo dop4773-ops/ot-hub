@@ -1,6 +1,6 @@
 {
   "name": "ot-hub",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "작업치료팀 업무자동화 — 청소분담표·평가일 관리·신환 평가명단·SCI 명단·출근부·도구 목록",
   "main": "main.js",
   "scripts": {
@@ -14,6 +14,7 @@
     "electron-builder": "^24.13.3"
   },
   "dependencies": {
+    "electron-updater": "^6.8.11",
     "exceljs": "^4.4.0",
     "sql.js": "^1.11.0"
   },

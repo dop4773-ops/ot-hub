@@ -4,6 +4,7 @@ const { assign, countsOf, zoneCounts } = require('./assign');
 const { bigClean } = require('./bigclean');
 const { build } = require('./export');
 const { loadStaff } = require('../../shared/staff');
+const { loadFloorPlan } = require('./floorplan');
 const defaults = require('./slots.json');
 
 const defaultRules = () => ({
@@ -29,6 +30,7 @@ module.exports = {
       });
       return { sheets, staff: await loadStaff(f.status), rules: rules() };
     });
+    ipc.handle('cleaning:floorplan', async () => { const f = settings.files(); return f.cleaning ? loadFloorPlan(f.cleaning) : null; });
     ipc.handle('cleaning:saveRules', (_, r, useSheets) => { settings.setMod('cleaning', { ...settings.mod('cleaning'), rules: r, useSheets }); return true; });
 
     ipc.handle('cleaning:run', (_, { people, useSheets, lastSheet, seed }) => {

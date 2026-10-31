@@ -4,7 +4,9 @@ const { txt, open } = require('../../shared/xl');
 const { build, fixedHolidays } = require('./build');
 
 // '평일시간표(원본)': 2행 '10층 치료실'/'3층 치료실'(병합 범위가 열 범위), 4행 치료사 이름
-async function loadFloors(statusFile) {
+const { memo } = require('../../shared/cache');
+const loadFloors = f => memo('floors', f, () => parseFloors(f));
+async function parseFloors(statusFile) {
   const ws = (await open(statusFile)).worksheets.find(w => /평일시간표/.test(w.name));
   if (!ws) throw new Error("'평일시간표(원본)' 시트를 찾지 못했습니다");
   const heads = [];

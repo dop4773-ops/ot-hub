@@ -32,7 +32,10 @@ renderer/modules/<id>.js   화면 — Hub.register({id,title,render(root)})   �
 - 신환 명단: `roster/roster.js` · `emr.js`의 `itemsOf`(EMR 평가 처방 코드 → 평가항목)
 - SCI 명단: `sci/sci.js`의 `buildList` (규칙 ① 현황판 색상 ② SCIM + 전체시간표 카드가 '재활치료 스케줄'(회복기 글자 없음) — `shared/timetable.js`)
 - 출근부: `attendance/build.js`(+`shared/staff.js` 정렬)
-- 도구 목록: `inventory/logic.js`의 `match/apply`
+- 도구 목록: `inventory/logic.js`의 `match/apply` · `request.js`(청구서 시트 읽기 — 4블록 × [물품|규격|수량|사유], '기타 주문건' 아래는 직접 기재 칸)
+- 낙상 순회: `fall/logic.js`의 `generate/check/build` (읽기 부분 `parseRoster/parseMonth`만 교체)
+- 자동 업데이트: `shared/updater.js`(electron 모름, 시험 있음) — rehab-hub에는 이미 `main/updater.js`가 있으니 합칠 때는 그쪽을 쓰고 이 파일은 버린다
+- 청소 배치도: `cleaning/floorplan.js`(Sheet1 → 칸·색) + 화면의 MAP(칸 글자 → 구역) — 합칠 때 화면 쪽 MAP만 옮김
 
 ## 시험
 `npm test` — Node만으로 도는 규칙 시험(직급 정렬 · 새 구역 우선 · CCRT 규칙 · 출근부 서식 · 도구목록 반영).

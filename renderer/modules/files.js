@@ -11,8 +11,14 @@ Hub.register({ id: 'files', icon: '📦', desc: '모든 기능이 같은 파일 
     <h2>EMR 치료 내역 (액팅오류 파일)</h2><div class="mute">신환 평가항목·평가 액팅 확인에 씁니다. 기간을 정해 뽑은 파일을 여러 개 올릴 수 있습니다.</div>
     <div class="row"><button id="addEmr" class="pri">파일 추가</button><button id="clrEmr">모두 지우기</button></div>
     <table>${S.emr.map((f, i) => `<tr><td>${esc(f)}</td><td><button data-rm="${i}">빼기</button></td></tr>`).join('') || '<tr><td class="mute">없음</td></tr>'}</table>
+    <h2>업데이트·정보</h2><div class="row"><span>현재 버전 <b id="curVer">-</b></span><span id="updMsg" class="mute"></span><button id="updCheck">지금 확인</button><button id="updInstall" class="pri" hidden>재시작하고 설치</button>
+      <label><input type="checkbox" id="autoUpd"> 자동으로 확인·받기</label></div><div class="mute">설치본은 시작할 때와 4시간마다 GitHub 릴리즈를 확인해 새 버전을 받아 둡니다. 받아 두면 위쪽 버전 표시를 눌러 바로 설치하거나, 앱을 닫을 때 자동으로 설치됩니다.</div>
     <h2>설정 옮기기</h2><div class="row"><button id="exp">설정 내보내기</button><button id="imp">설정 가져오기</button><span class="mute">다른 PC로 옮길 때 — 그 PC에 없는 경로는 자동으로 빠집니다</span></div>`;
+    if (typeof paintUpd === 'function') { paintUpd({ version: '-', ...Hub.upd }); invoke('app:updateState').then(paintUpd); invoke('app:autoUpdate').then(v => { const c = root.querySelector('#autoUpd'); if (c) c.checked = v; }); }
   };
+  const paintUpd = u => { const g = id => root.querySelector(id); if (!g('#curVer')) return;
+    g('#curVer').textContent = 'v' + u.version; g('#updInstall').hidden = u.state !== 'ready';
+    g('#updMsg').textContent = ({ dev: '개발 실행 중이라 업데이트 확인을 건너뜁니다', idle: '', checking: '확인 중…', none: '최신 버전입니다', downloading: `새 버전 ${u.latest} 받는 중 ${u.percent}%`, ready: `새 버전 ${u.latest} 준비 완료`, error: '확인 실패 — ' + (u.message || '') })[u.state] || ''; };
   const set = async (k, p) => { state.settings = await invoke('app:setFile', k, p); draw(); };
   root.onclick = async e => {
     const t = e.target, d = t.dataset;
@@ -25,6 +31,9 @@ Hub.register({ id: 'files', icon: '📦', desc: '모든 기능이 같은 파일 
     if (t.id === 'exp') { const p = await invoke('app:exportSettings'); p && say('저장했습니다: ' + p); }
     if (t.id === 'imp') { const s = await invoke('app:importSettings'); if (s) { state.settings = s; say('설정을 가져왔습니다'); draw(); } }
   };
+  root.addEventListener('click', e => { if (e.target.id === 'updCheck') { invoke('app:updateCheck'); } if (e.target.id === 'updInstall') invoke('app:updateInstall'); });
+  root.addEventListener('change', async e => { if (e.target.id === 'autoUpd') invoke('app:setAutoUpdate', e.target.checked); });
   root.onchange = e => e.target.dataset.cand && set(e.target.dataset.cand, e.target.value);
-  draw();
+  draw(); Hub.upd && paintUpd({ version: '-', ...Hub.upd }); invoke('app:updateState').then(paintUpd); invoke('app:autoUpdate').then(v => { const c = root.querySelector('#autoUpd'); if (c) c.checked = v; });
+  hub.on('app:update', paintUpd);
 } });

@@ -6,7 +6,9 @@ const { ExcelJS } = require('./xl');
 const HEAD = /재활치료\s*스케줄/;
 const cellText = c => { const v = c && c.value; if (v == null) return ''; if (v.richText) return v.richText.map(t => t.text).join(''); return String(v.result ?? v); };
 
-async function loadTimetableCards(file) {
+const { memo } = require('./cache');
+const loadTimetableCards = file => memo('timetable', file, () => parseCards(file));
+async function parseCards(file) {
   const out = {};
   const reader = new ExcelJS.stream.xlsx.WorkbookReader(file, { worksheets: 'emit', sharedStrings: 'cache', styles: 'ignore', hyperlinks: 'ignore', entries: 'ignore' });
   for await (const ws of reader) {

@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const fs = require('fs'), path = require('path');
 const { ROLES, find } = require('./shared/files');
 const { nfc } = require('./shared/xl');
+const { createUpdateManager } = require('./shared/updater');
 
 // ---- 설정 저장소: { files:{역할:경로}, emr:[…], mod:{모듈id:{…}} } ----
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
@@ -16,8 +17,12 @@ const settings = {
 };
 
 function createWindow() {
-  new BrowserWindow({ width: 1360, height: 900, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true } })
-    .loadFile('renderer/index.html');
+  const win = new BrowserWindow({ width: 1360, height: 900, show: false, backgroundColor: '#f4f7fb', webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true } });
+  win.once('ready-to-show', () => win.show());
+  win.loadFile('renderer/index.html');
+  setupUpdates(win);
+  win.webContents.once('did-finish-load', () => setTimeout(warmUp, 150));
+  return win;
 }
 
 // ---- 공통 채널 ----
@@ -41,6 +46,35 @@ ipcMain.handle('app:importSettings', async () => {
   for (const k of Object.keys(s.files || {})) if (!fs.existsSync(s.files[k])) delete s.files[k];   // 이 PC에 없는 경로는 버린다
   settings.save({ files: {}, emr: [], mod: {}, ...s, emr: (s.emr || []).filter(f => fs.existsSync(f)) }); return settings.all();
 });
+
+// ---- 자동 업데이트 (설치본에서만 동작, GitHub 공개 릴리즈 latest.yml 확인) ----
+let upd = null;
+const setupUpdates = win => {
+  const { autoUpdater } = require('electron-updater');
+  upd = createUpdateManager({ autoUpdater, send: st => { if (!win.isDestroyed()) win.webContents.send('app:update', st); }, version: app.getVersion(), packaged: app.isPackaged, getAuto: () => settings.mod('app').autoUpdate !== false });
+  upd.start();
+};
+ipcMain.handle('app:updateState', () => upd ? upd.state() : { state: 'dev', version: app.getVersion() });
+ipcMain.handle('app:updateCheck', () => { upd && upd.check(); return true; });
+ipcMain.handle('app:updateInstall', () => { upd && upd.install(); return true; });
+ipcMain.handle('app:setAutoUpdate', (_, on) => { settings.setMod('app', { ...settings.mod('app'), autoUpdate: !!on }); return true; });
+ipcMain.handle('app:autoUpdate', () => settings.mod('app').autoUpdate !== false);
+
+// ---- 시작할 때 연결된 파일을 미리 읽어 둔다 (첫 클릭부터 바로 열리도록; 실패해도 조용히 넘어감) ----
+async function warmUp() {
+  const f = settings.files(), t0 = Date.now(), tasks = [];
+  const add = (fn) => tasks.push(() => Promise.resolve().then(fn).catch(() => {}));
+  if (f.status) { add(() => require('./shared/status').loadStatus(f.status)); add(() => require('./shared/staff').loadStaff(f.status)); add(() => require('./modules/eval/ccrt').loadCcrtSchedule(f.status)); add(() => require('./modules/attendance').loadFloors(f.status)); }
+  if (f.eval) { add(() => require('./modules/eval/schedule').loadSchedule(f.eval)); add(() => require('./modules/eval/schedule').loadCycles(f.eval)); add(() => require('./modules/sci/sci').loadScimNames(f.eval)); add(() => require('./shared/off').loadOff(f.eval)); }
+  if (f.cleaning) add(() => require('./modules/cleaning/history').loadHistory(f.cleaning));
+  if (f.tools) add(() => require('./modules/inventory/logic').loadTools(f.tools));
+  if (f.supply) add(() => require('./modules/inventory/request').loadRequests(f.supply));
+  for (const k of ['timetable10', 'timetable3']) if (f[k]) add(() => require('./shared/timetable').loadTimetableCards(f[k]));
+  if (settings.emr().length) add(() => require('./modules/roster/emr').loadEmr(settings.emr()));
+  if (f.messenger) add(() => require('./shared/messenger').loadDischarges(f.messenger));
+  for (const t of tasks) await t();                         // 하나씩(동시에 많이 읽으면 오히려 느려진다)
+  console.log(`미리 읽기 완료 ${Date.now() - t0}ms`);
+}
 
 // ---- 모듈 등록 ----
 const ctx = { ipc: ipcMain, settings, dialog, ROLES };

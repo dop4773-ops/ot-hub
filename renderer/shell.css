@@ -59,3 +59,37 @@ tr.zone td{background:#f6f9fd;font-weight:800;color:var(--navy)}
 .sat{color:#2563eb}.sun{color:#dc2626}.hol{background:#d1d5db}
 #msg{position:fixed;right:22px;bottom:16px;max-width:60vw;background:#fff;border:1px solid var(--border);border-radius:10px;padding:8px 14px;font-size:12px;box-shadow:0 4px 16px rgba(20,40,70,.14);display:none}
 #msg.show{display:block}
+
+/* 도구 목록·미리보기 공용 */
+.btn{border:1px solid var(--border);border-radius:8px;background:#fff;padding:8px 13px;font-weight:700;font-size:12px;cursor:pointer}.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#fff}
+.seg button{border:none;border-right:1px solid var(--border);border-radius:0;background:none;padding:6px 11px;font-size:12px;color:#4a5a72}.seg button:last-child{border-right:none}.seg button.active{background:var(--navy);color:#fff}
+.badge{border-radius:999px;padding:2px 9px;font-weight:700;font-size:11px}.badge.blue{background:#e8effc;color:#3a5aa8}.badge.orange{background:#fdf1e3;color:var(--orange)}
+.scroll{max-height:64vh;overflow:auto;border:1px solid var(--border);border-radius:10px}.scroll table{margin:0}.scroll th{position:sticky;top:0;z-index:1}
+table.data td.num{text-align:right;font-variant-numeric:tabular-nums}tr.clk{cursor:pointer}tr.clk:hover td{background:#f4f8ff}tr.sel td{background:#e8effc}
+.card.inner{box-shadow:none;background:#fbfdff;align-self:start}.kv{display:grid;grid-template-columns:60px 1fr;gap:6px 10px;font-size:13px}.kv span{color:var(--sub)}
+.strip{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 14px;margin:12px 0;background:#f6f9fd;border:1px solid var(--border);border-radius:10px}.strip .seg{margin-left:auto}
+.chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}.chip.on .mute{color:#cfe0f5}.chip.warnchip{background:#fdf1e3;color:var(--orange);border-color:#f1d9b8}
+.reqs{display:flex;flex-direction:column;gap:8px}.req{display:grid;grid-template-columns:minmax(260px,1.4fr) minmax(220px,1fr) auto;gap:8px 14px;align-items:center;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:#fff}
+.req.need{border-color:#e9b97a;background:#fffaf2}.req.std{background:#fafbfd}.req .rh{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}.req .qty{font-weight:800;color:var(--navy)}
+.req .rn{grid-column:1/-1;font-size:12px}.tag{font-size:10.5px;font-weight:700;border-radius:6px;padding:1px 7px}.tag.a{background:#e8f6ef;color:var(--green)}.tag.b{background:#eef1f6;color:var(--sub)}
+.req .rm{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+@media(max-width:1100px){.req{grid-template-columns:1fr}}
+
+/* 시트 모양 미리보기 (낙상 순회·출근부 등) */
+.sheetwrap{margin:10px 0}table.sheet{font-size:12px;border-collapse:collapse;min-width:100%;margin:0}
+table.sheet th,table.sheet td{border:1px solid #cfd8e6;padding:5px 7px;text-align:center;white-space:nowrap}table.sheet th{background:#e6edf8;color:#2f4378}
+table.sheet .tm{background:#f2f6fc;font-weight:700;color:#4a5a72;position:sticky;left:0;z-index:1;text-align:left}
+table.sheet td.cell{cursor:pointer}table.sheet td.cell:hover{background:#eef4ff}td.satc{background:#f3f7ff}td.hol{background:#d1d5db;color:#dc2626;font-weight:700}td.lunch{background:#f6f6f6}
+td.badcell{background:#fbe7e7;color:var(--red);font-weight:700}table.sheet th.sat{color:#2563eb}table.sheet th.sun{color:#dc2626}
+
+/* 청소 배치도 */
+.plan{display:grid;gap:0;border:1px solid #b9c6dc;border-radius:8px;overflow:hidden;background:#fff;width:100%;max-width:980px;margin:10px 0}
+.pb{border:1px solid #fff;padding:3px 4px;overflow:hidden;font-size:10.5px;line-height:1.25;color:#33415a;background:#f3f5f9}.pb.mine{box-shadow:inset 0 0 0 2px rgba(63,154,120,.65)}
+.pb .pt{font-weight:800;font-size:11px;color:#1f2d4d}.pl{margin-top:2px}.pl .pr{display:inline-block;background:rgba(255,255,255,.75);border-radius:4px;padding:0 4px;margin-right:4px;font-weight:700;color:#4a5a72}
+.pl.tool{color:#9a5a00}.vacn{color:#b9782d;font-weight:800}.pl-row{margin:4px 0;font-size:12px}
+
+table.sheet.left{max-width:560px}table.sheet td.zcell{background:#eef3fb;font-weight:800;color:#2f4378;text-align:left;vertical-align:middle;white-space:normal}
+table.sheet td.tm{text-align:left;position:static;background:#fff;font-weight:600}select.plain{border:none;background:transparent;font-weight:700;padding:2px 0;cursor:pointer}select.plain:hover{background:#eef4ff}
+table.att tr.sat td.dcell,table.att td.dcell.sat{color:#2563eb;font-weight:700}table.att td.dcell.sun,table.att td.dcell.hol{color:#dc2626;font-weight:700}table.att tr.hol td{background:#d1d5db}table.att tr.sun td:not(.dcell){background:#fff8f8}table.att tr.sat td:not(.dcell){background:#f5f8ff}
+table.att td{font-size:11px;color:#6b7585}

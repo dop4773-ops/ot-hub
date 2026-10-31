@@ -9,7 +9,9 @@ const DAYS = { 월: 1, 화: 2, 수: 3, 목: 4, 금: 5 };
 const NAME = /^[가-힣]{2,4}[A-Z]?$/, NOT_NAME = /^(점심시간|치료시간|치료사|전산화인지|외래|평가|신환)$/;
 
 // '평일시간표(원본)' 시트에서 "10F) CCRT / 3F) BETTER / 3F) COMCOG" 블록을 찾아 이름 → 치료요일 집합
-async function loadCcrtSchedule(statusFile) {
+const { memo } = require('../../shared/cache');
+const loadCcrtSchedule = f => memo('ccrtSchedule', f, () => parseCcrtSchedule(f));
+async function parseCcrtSchedule(statusFile) {
   const ws = (await open(statusFile)).worksheets.find(w => /평일시간표/.test(w.name));
   if (!ws) throw new Error("'평일시간표(원본)' 시트를 찾지 못했습니다");
   const out = { ccrt: {}, better: {}, comcog: {} };

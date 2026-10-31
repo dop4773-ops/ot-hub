@@ -24,7 +24,9 @@ function itemsOf(order, text) {
 }
 
 // 환자별 평가항목과 처방일. 열: B처방일자 D환자성명 E처방명칭 H치료내용 (머리글 '순번' 행 아래)
-async function loadEmr(files) {
+const { memo } = require('../../shared/cache');
+const loadEmr = files => memo('emr', files, () => parseEmr(files));
+async function parseEmr(files) {
   const by = {};   // name → { PT:Set, OT:Set, dates:Set }
   let from = null, to = null;
   for (const f of files) {

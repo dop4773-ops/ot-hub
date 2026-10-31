@@ -8,6 +8,12 @@ Hub.register({ id: 'attendance', icon: '🕘', desc: '층별 직급순 출근부
     S.data = await invoke('attendance:load'); if (S.data.error) { root.innerHTML = `<div class="warn">${esc(S.data.error)}</div>`; return; }
     S.floor = Object.keys(S.data.floors).sort().reverse()[0]; await holidays(); draw();
   }
+  const hols = () => new Set(S.holidays.split('\n').map(x => x.trim()).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x)));
+  function preview() {
+    const list = names().slice(0, 6), H = hols(), cls = d => H.has(d) ? 'hol' : new Date(d + 'T00:00:00Z').getUTCDay() === 0 ? 'sun' : new Date(d + 'T00:00:00Z').getUTCDay() === 6 ? 'sat' : '';
+    const rows = []; for (let d = 1; d <= 15; d++) { const date = `${S.year}-${pad(S.month)}-${pad(d)}`, c = cls(date), w = Hub.wd(date); rows.push(['출근', '퇴근'].map((k, j) => `<tr class="${c}">${j === 0 ? `<td rowspan="2" class="dcell ${c}">${d}<br><small>(${w})</small></td>` : ''}${list.map(() => `<td>${k}</td><td></td>`).join('')}</tr>`).join('')); }
+    return `<div class="scroll sheetwrap"><table class="sheet att"><tr><th rowspan="2">날짜</th>${list.map(p => `<th colspan="2">${esc(p.name)}</th>`).join('')}</tr><tr>${list.map(() => '<th>출,퇴근 시간</th><th>서명</th>').join('')}</tr>${rows.join('')}</table></div>`;
+  }
   async function holidays() {                                                // 설정에 저장된 공휴일이 해당 연도 것이면 쓰고, 없으면 고정일 공휴일만 채운다
     const saved = S.data.cfg.holidays;
     S.holidays = (saved && saved.length ? saved : await invoke('attendance:fixedHolidays', S.year)).filter(d => d.startsWith(String(S.year))).join('\n');
@@ -22,6 +28,7 @@ Hub.register({ id: 'attendance', icon: '🕘', desc: '층별 직급순 출근부
     <div class="row"><input id="extra" placeholder="이름 추가" value="${esc(S.extra)}"><span class="mute">시간표에 없는 사람을 맨 뒤에 넣을 때</span></div>
     <h2>공휴일 (한 줄에 하나)</h2><div class="mute">고정일 공휴일만 미리 채웠습니다. 설날·추석·대체공휴일·선거일은 달력과 대조해 추가하세요.</div>
     <textarea id="hol" rows="6" cols="22" style="font:inherit;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:6px">${esc(S.holidays)}</textarea>
+    <h2>미리보기 <span class="mute">(1~15일 · 첫 블록 6명 — 저장되는 시트와 같은 모양)</span></h2>${preview()}
     <div class="row" style="margin-top:14px"><button id="save" class="pri">새 엑셀로 저장</button><span class="mute">1~15일, 16~말일 두 시트가 만들어집니다</span></div>`;
   }
   root.onchange = async e => { const t = e.target;

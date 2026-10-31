@@ -24,6 +24,14 @@ const Hub = (() => {
     document.getElementById('stSub').textContent = ok === must.length ? '' : must.filter(r => !state.settings.files[r]).map(r => state.roles[r].label).join(', ');
   }
   async function reload() { state.settings = await invoke('app:settings'); }
+  // 상단 버전 알약: 업데이트 상태를 보여 주고, 준비되면 눌러서 재시작·설치
+  const upd = { state: 'idle' };
+  function showUpdate(u) {
+    Object.assign(upd, u); const p = document.getElementById('verPill'); if (!p) return;
+    const m = { dev: [`v${u.version} · 개발 실행`, ''], idle: [`v${u.version}`, ''], checking: [`v${u.version} · 업데이트 확인 중…`, ''], none: [`v${u.version} · 최신`, 'ok'],
+      downloading: [`새 버전 ${u.latest || ''} 받는 중 ${u.percent || 0}%`, 'stale'], ready: [`↻ 새 버전 ${u.latest} 설치 — 클릭해 재시작`, 'stale'], error: [`v${u.version} · 업데이트 확인 실패`, 'stale'] }[u.state] || [`v${u.version}`, ''];
+    p.textContent = m[0]; p.className = 'pill ' + m[1]; p.style.cursor = u.state === 'ready' ? 'pointer' : 'default'; p.title = u.message || '';
+  }
   async function go(id) {
     state.cur = id; await reload();
     document.querySelectorAll('#nav .nav-item').forEach(b => b.classList.toggle('active', b.dataset.id === id));
@@ -35,9 +43,11 @@ const Hub = (() => {
     const nav = document.getElementById('nav');
     nav.innerHTML = mods.map(m => (m.sep ? '<div class="nav-sep"></div>' : '') + `<div class="nav-item" data-id="${m.id}" title="${esc(m.title)}"><span class="ni">${m.icon || '•'}</span><span class="nl">${esc(m.title)}</span></div>`).join('');
     nav.onclick = e => { const it = e.target.closest('.nav-item'); it && go(it.dataset.id); };
+    hub.on('app:update', showUpdate); invoke('app:updateState').then(showUpdate);
+    document.getElementById('verPill').onclick = () => { if (upd.state === 'ready') invoke('app:updateInstall'); };
     document.getElementById('sidebarToggle').onclick = () => { const sb = document.getElementById('sidebar'); sb.classList.toggle('collapsed'); document.getElementById('sidebarToggle').textContent = sb.classList.contains('collapsed') ? '»' : '«'; };
     const d = new Date(); document.getElementById('todayDate').textContent = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} (${WD[d.getDay()]})`;
     go(mods[0].id);
   }
-  return { register, start, go, reload, esc, wd, pad, opts, say, invoke, nextMonth, files, needFiles, missingBox, tabsHtml, state };
+  return { register, start, upd, showUpdate, go, reload, esc, wd, pad, opts, say, invoke, nextMonth, files, needFiles, missingBox, tabsHtml, state };
 })();
