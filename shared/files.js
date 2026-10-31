@@ -35,11 +35,12 @@ function find(dir, role, depth = 0) {
 // 여러 폴더를 한 번에 훑어 모든 역할의 파일을 찾는다(폴더 안의 폴더까지 maxDepth단계). 같은 역할 파일이 여럿이면 가장 최근에 고친 것을 쓴다(월별 POT는 전부).
 // 백업·휴지통 폴더는 건너뛰고, deadlineMs를 넘기면 거기까지 찾은 것만 돌려준다.
 const SKIP = /^(node_modules|\.tmp|\$recycle\.bin|system volume information|appdata|windows|program files.*|programdata|library)$|백업|backup|휴지통/i;
-function scanAll(roots, { maxDepth = 5, deadlineMs = 25000 } = {}) {
+function scanAll(roots, { maxDepth = 5, deadlineMs = 25000, exclude = [] } = {}) {
+  const ex = exclude.map(x => path.resolve(x));
   const t0 = Date.now(), best = {}, pot = {}, seen = new Set();
   const roles = Object.entries(ROLES);
   const walk = (dir, depth) => {
-    if (Date.now() - t0 > deadlineMs || seen.has(dir)) return; seen.add(dir);
+    if (Date.now() - t0 > deadlineMs || seen.has(dir) || ex.some(x => dir === x || dir.startsWith(x + path.sep))) return; seen.add(dir);
     let ents; try { ents = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
     for (const e of ents) {
       const n = nfc(e.name), p = path.join(dir, e.name);

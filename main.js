@@ -44,7 +44,7 @@ ipcMain.handle('app:reveal', (_, p) => { if (p && fs.existsSync(p)) shell.showIt
 // 전체 자동 찾기: folders가 없으면 이 PC의 구글 드라이브·원드라이브·바탕화면·문서·다운로드를 폴더 안의 폴더까지 훑어 아직 연결 안 된 파일을 모두 연결한다.
 // folders가 있으면(직접 지정) 그 폴더들만. → { found:[역할], missing:[역할], ms, timedOut }
 async function autoFind(folders) {
-  const roots = folders && folders.length ? folders : defaultRoots(), scan = scanAll(roots, { maxDepth: folders ? 6 : 5 });
+  const ex = settings.all().findExclude || [], roots = folders && folders.length ? folders : defaultRoots().filter(r => !ex.includes(r)), scan = scanAll(roots, { maxDepth: folders ? 6 : 5, exclude: folders ? [] : ex });
   const s = settings.all(), found = [], missing = [];
   for (const [role, def] of Object.entries(ROLES)) {
     if (def.multi) continue; if (s.files[role] && fs.existsSync(s.files[role])) continue;
@@ -54,6 +54,10 @@ async function autoFind(folders) {
   settings.save(s); return { found, missing, settings: s, ms: scan.ms, timedOut: scan.timedOut, roots: roots.length };
 }
 ipcMain.handle('app:autoFind', () => autoFind(null));
+// 자동 찾기에서 뺄 폴더(개발용 드라이브 등): 기본 검색 위치 목록 + 제외 목록
+ipcMain.handle('app:findRoots', () => ({ roots: defaultRoots(), exclude: settings.all().findExclude || [] }));
+ipcMain.handle('app:setFindExclude', (_, list) => { const s = settings.all(); s.findExclude = [...new Set(list || [])]; settings.save(s); return { roots: defaultRoots(), exclude: s.findExclude }; });
+ipcMain.handle('app:pickFolder', async () => { const r = await dialog.showOpenDialog({ properties: ['openDirectory'] }); return r.canceled ? null : r.filePaths[0]; });
 ipcMain.handle('app:findAll', async () => { const r = await dialog.showOpenDialog({ title: '파일이 들어 있는 폴더(여러 개 선택 가능)', properties: ['openDirectory', 'multiSelections'] }); return r.canceled ? null : autoFind(r.filePaths); });
 ipcMain.handle('app:setFile', (_, role, p) => { const s = settings.all(); if (p) s.files[role] = p; else delete s.files[role]; settings.save(s); return s; });
 ipcMain.handle('app:findFiles', async (_, role) => { const r = await dialog.showOpenDialog({ properties: ['openDirectory'] }); return r.canceled ? null : find(r.filePaths[0], role); });

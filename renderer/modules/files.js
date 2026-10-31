@@ -8,6 +8,7 @@ Hub.register({ id: 'files', icon: '📦', desc: '모든 기능이 같은 파일 
     const list = (arr, attr) => arr.map((f, i) => `<div class="st-fold"><code>${esc(f)}</code><button class="btn" data-${attr}="${i}">빼기</button></div>`).join('') || '<div class="st-note warn">없음</div>';
     root.innerHTML = `<div class="st-panel">
     ${row('전체 자동 찾기', missing.length ? `아직 연결 안 된 파일 ${missing.length}개를 이 PC의 구글 드라이브·원드라이브·바탕화면·문서·다운로드 안(폴더 속 폴더까지)에서 찾습니다. 못 찾으면 「폴더 직접 지정」. <span class="warn">${missing.map(esc).join(' · ')}</span>` : '필요한 파일이 모두 연결되어 있습니다.', '', `<button id="autoFind" data-key="run" class="btn primary">${missing.length ? '자동으로 찾기' : '다시 찾기'}</button><button id="findAll" class="btn">폴더 직접 지정…</button>`)}
+    <details class="st-fold-box"><summary>자동으로 찾는 위치 <span class="mute">— 개발용 드라이브처럼 빼고 싶은 곳은 체크를 끄세요</span></summary><div id="roots" class="st-note">불러오는 중…</div></details>
     <div class="st-sec">필요한 파일 — PC마다 경로가 달라서 여기서 한 번만 지정하면 됩니다</div>
     ${Object.entries(R).filter(([, r]) => !r.multi).map(([k, r]) => row(`${esc(r.label)} <span class="chip ${S.files[k] ? 'ok' : 'off'}"><i></i>${S.files[k] ? '연결됨' : '연결 안 됨'}</span>`, esc(r.hint),
       (S.files[k] ? `<code>${esc(S.files[k])}</code>` : '') + ((draw.cand?.[k] || []).length > 1 ? `<div class="row">후보 <select data-cand="${k}">${draw.cand[k].map(f => `<option>${esc(f)}</option>`).join('')}</select></div>` : ''),
@@ -22,11 +23,17 @@ Hub.register({ id: 'files', icon: '📦', desc: '모든 기능이 같은 파일 
     <div class="st-sec">설정 옮기기</div>
     ${row('설정 내보내기·가져오기', '다른 PC로 옮길 때 — 그 PC에 없는 경로는 자동으로 빠집니다', '', '<button id="exp" class="btn">설정 내보내기</button><button id="imp" class="btn">설정 가져오기</button>')}
     </div>`;
+    fillRoots();
     if (typeof paintUpd === 'function') { paintUpd({ version: '-', ...Hub.upd }); invoke('app:updateState').then(paintUpd); invoke('app:autoUpdate').then(v => { const c = root.querySelector('#autoUpd'); if (c) c.checked = v; }); }
   };
   const paintUpd = u => { const g = id => root.querySelector(id); if (!g('#curVer')) return;
     g('#curVer').textContent = 'v' + u.version; g('#updInstall').hidden = u.state !== 'ready';
     g('#updMsg').textContent = ({ dev: '개발 실행 중이라 업데이트 확인을 건너뜁니다', idle: '', checking: '확인 중…', none: '최신 버전입니다', downloading: `새 버전 ${u.latest} 받는 중 ${u.percent}%`, ready: `새 버전 ${u.latest} 준비 완료`, error: '확인 실패 — ' + (u.message || '') })[u.state] || ''; };
+  // 자동으로 찾는 위치(체크 = 검색, 끄면 제외) + 직접 제외할 폴더
+  async function fillRoots() {
+    const el = root.querySelector('#roots'); if (!el) return; const { roots, exclude } = await invoke('app:findRoots'), all = [...new Set([...roots, ...exclude])];
+    el.innerHTML = all.map(r => `<label class="st-root"><input type="checkbox" data-root="${esc(r)}" ${exclude.includes(r) ? '' : 'checked'}> <code>${esc(r)}</code></label>`).join('') + '<div class="row"><button id="addEx" class="btn">제외할 폴더 추가…</button></div>';
+  }
   const set = async (k, p) => { state.settings = await invoke('app:setFile', k, p); draw(); };
   root.onclick = async e => {
     const t = e.target, d = t.dataset;
@@ -42,13 +49,14 @@ Hub.register({ id: 'files', icon: '📦', desc: '모든 기능이 같은 파일 
     if (t.id === 'clrEmr') { state.settings = await invoke('app:setEmr', []); draw(); }
     if (t.id === 'exp') { const p = await invoke('app:exportSettings'); p && Hub.saved(p); }
     if (t.id === 'saveHols') { await Hub.setHolidays('', root.querySelector('#hols').value); say('공통 공휴일을 저장했습니다'); draw(); }
+    if (t.id === 'addEx') { const f = await invoke('app:pickFolder'); if (f) { const cur = await invoke('app:findRoots'); await invoke('app:setFindExclude', [...cur.exclude, f]); fillRoots(); } }
     if (t.id === 'autoFind') { say('이 PC에서 찾는 중…'); const r = await invoke('app:autoFind'); state.settings = r.settings; say(`${r.found.length}개 연결 (${(r.ms / 1000).toFixed(1)}초)${r.missing.length ? ` · 못 찾은 파일 ${r.missing.length}개` : ''}${r.timedOut ? ' · 시간이 걸려 일부만 훑었습니다' : ''}`, !!r.missing.length); draw(); }
     if (t.id === 'findAll') { const r = await invoke('app:findAll'); if (r) { state.settings = r.settings; say(`${r.found.length}개 연결${r.missing.length ? ` · 못 찾은 파일 ${r.missing.length}개` : ''}`, !!r.missing.length); draw(); } }
     if (t.id === 'imp') { const s = await invoke('app:importSettings'); if (s) { state.settings = s; say('설정을 가져왔습니다'); draw(); } }
   };
   root.addEventListener('click', e => { if (e.target.id === 'updCheck') { invoke('app:updateCheck'); } if (e.target.id === 'updInstall') invoke('app:updateInstall'); });
   root.addEventListener('change', async e => { if (e.target.id === 'autoUpd') invoke('app:setAutoUpdate', e.target.checked); });
-  root.onchange = e => e.target.dataset.cand && set(e.target.dataset.cand, e.target.value);
+  root.onchange = async e => { const d = e.target.dataset; if (d.cand) return set(d.cand, e.target.value); if (d.root) { const cur = await invoke('app:findRoots'), ex = new Set(cur.exclude); e.target.checked ? ex.delete(d.root) : ex.add(d.root); await invoke('app:setFindExclude', [...ex]); fillRoots(); } };
   draw(); if (!Object.keys(state.settings.files).length && !sessionStorage.getItem('othub.autoFound')) { try { sessionStorage.setItem('othub.autoFound', '1'); } catch { /* 무시 */ } root.querySelector('#autoFind')?.click(); }      // 처음 열었는데 연결된 파일이 하나도 없으면 바로 자동으로 찾는다
   Hub.upd && paintUpd({ version: '-', ...Hub.upd }); invoke('app:updateState').then(paintUpd); invoke('app:autoUpdate').then(v => { const c = root.querySelector('#autoUpd'); if (c) c.checked = v; });
   hub.on('app:update', paintUpd);
