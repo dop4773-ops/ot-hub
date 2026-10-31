@@ -107,3 +107,5 @@ table.att td{font-size:11px;color:#6b7585}
 .lv{margin-left:6px;font-size:11px;color:var(--muted);cursor:pointer}.lv input{vertical-align:middle;margin-right:2px}
 .chipb{border:1px solid var(--line,#cfd5df);background:transparent;border-radius:12px;padding:2px 9px;font-size:12px;cursor:pointer;color:inherit}.chipb.on{background:var(--accent,#2563eb);color:#fff;border-color:transparent}tr[hidden]{display:none}
 .cell.edited{outline:2px solid #f59e0b;outline-offset:-2px}
+.pickpop{position:fixed;z-index:50;width:210px;background:var(--card,#fff);color:inherit;border:1px solid #9aa3b2;border-radius:8px;box-shadow:0 6px 24px #0003;padding:6px}.pickpop input{width:100%;box-sizing:border-box;margin-bottom:4px}.pickpop .pl{max-height:240px;overflow:auto}.pickpop .pi{padding:4px 8px;cursor:pointer;border-radius:4px}.pickpop .pi:hover{background:#2563eb22}.pickpop .pi.cur{font-weight:700}.pickpop .pbtn{display:flex;gap:6px;margin-top:4px}.pickpop .pbtn button{flex:1}
+.dropz{border:2px dashed #9aa3b2;border-radius:10px;padding:16px;text-align:center;color:var(--muted,#6b7280);margin:6px 0}.dropz.over{border-color:#2563eb;background:#2563eb14}

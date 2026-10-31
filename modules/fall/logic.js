@@ -77,6 +77,14 @@ function generate({ year, month, floor = '10층', roster, history = {}, holidays
   const leaveOn = (n, d) => (leaves[d] || []).some(l => l.name === n) || ((overrides[d] || {}).exclude || []).includes(n);
   // 가장 최근 토요일 팀 → 다음 팀 (순환) — 토요일 시트·캘린더에 없는 날의 마지막 수단
   let rot = null; { const ms = Object.keys(history).map(Number).sort((a, b) => b - a); for (const m of ms) { const sats = history[m].filter(d => d.wd === '토' && d.names.some(Boolean)); if (sats.length) { const who = sats[sats.length - 1].names.find(n => n && NAME.test(n)); const t = who ? [1, 2, 3].find(k => roster.sat[k].includes(who)) : 0; rot = ((t || 0) % 3) + 1; break; } } if (!rot) rot = 1; }
+  // 토요일 순번: 팀 명단 순서대로 돌아가며 11칸을 채우고, 사람이 모자라면 처음부터 다시(1234567123…).
+  // 같은 팀의 직전 토요일(지난 달 이력 포함)에서 마지막으로 들어간 사람 다음부터 이어간다.
+  const lastSat = {}; { for (const m of Object.keys(history).map(Number).sort((a, b) => a - b)) for (const d of history[m]) { if (d.wd !== '토') continue; const nm = d.names.filter(n => n && NAME.test(n)); if (!nm.length) continue; const t = [1, 2, 3].find(k => roster.sat[k].includes(nm[0])); if (t) lastSat[t] = nm[nm.length - 1]; } }
+  const cyc = (team, eligible, n) => {
+    const base = [...(roster.sat[team] || [])]; eligible.forEach(e => { if (!base.includes(e)) base.push(e); });
+    const start = base.indexOf(lastSat[team]) + 1, list = []; for (let k = 0; k < base.length; k++) { const x = base[(start + k) % base.length]; if (eligible.includes(x)) list.push(x); }
+    const out = list.length ? Array.from({ length: n }, (_, i) => list[i % list.length]) : []; if (out.length) lastSat[team] = out[out.length - 1]; return { out, list };
+  };
   const out = [];
   for (const wk of weeks) {
     const weekdays = wk.days.filter(d => d.wd !== '토' && !d.holiday), satDay = wk.days.find(d => d.wd === '토' && !d.holiday);
@@ -106,8 +114,10 @@ function generate({ year, month, floor = '10층', roster, history = {}, holidays
       info[d.date] = { team, source, holiday: d.holiday, people };
       if (d.wd === '토' && !d.holiday) {
         const pool = people.filter(p => (floor === '3층' ? p.floor3 : !p.floor3) && !p.off).map(p => p.name);
-        const pick = [...pool].sort((a, b) => (scnt[a] || 0) - (scnt[b] || 0) || rnd() - 0.5).slice(0, 11);
-        if (pick.length < 11) notes.push(`${month}/${d.day}(토): 근무 가능한 ${floor} 선생님이 ${pick.length}명뿐입니다 (${source}) — 직접 채워 주세요`);
+        let pick;
+        if (team) { const c = cyc(team, pool, 11); pick = c.out; if (c.list.length && c.list.length < 11) notes.push(`${month}/${d.day}(토): 근무 가능한 ${floor} 선생님이 ${c.list.length}명이라 처음부터 다시 채웠습니다`); }
+        else { pick = [...pool].sort((a, b) => (scnt[a] || 0) - (scnt[b] || 0) || rnd() - 0.5).slice(0, 11); if (pick.length < 11) notes.push(`${month}/${d.day}(토): 근무 팀을 몰라 ${pick.length}명만 넣었습니다 — 직접 채워 주세요`); }
+        if (!pick.length) notes.push(`${month}/${d.day}(토): 근무 가능한 ${floor} 선생님이 없습니다 (${source}) — 직접 채워 주세요`);
         pick.forEach(n => scnt[n] = (scnt[n] || 0) + 1); satNames[d.date] = pick;
         if (source.startsWith('순환(추정)')) notes.push(`${month}/${d.day}(토): 근무 팀을 찾지 못해 순환으로 ${team}팀으로 추정했습니다 — 확인하세요`);
       }
@@ -124,7 +134,7 @@ function check({ weeks, roster }) {
   const leave = new Set(roster.leave.filter(l => /휴직/.test(l.kind)).map(l => l.name)), issues = [];
   for (const wk of weeks) for (const d of wk.days) {
     if (d.holiday) continue;
-    const seen = new Set(); d.names.forEach((n, i) => { if (!n) issues.push({ date: d.date, slot: i, msg: '빈칸' }); else { if (seen.has(n)) issues.push({ date: d.date, slot: i, msg: `${n} 하루에 두 번` }); seen.add(n); if (leave.has(n)) issues.push({ date: d.date, slot: i, msg: `${n} 휴직 중` }); } });
+    const seen = new Set(), sat = d.wd === '토'; d.names.forEach((n, i) => { if (!n) issues.push({ date: d.date, slot: i, msg: '빈칸' }); else { if (seen.has(n) && !sat) issues.push({ date: d.date, slot: i, msg: `${n} 하루에 두 번` }); seen.add(n); if (leave.has(n)) issues.push({ date: d.date, slot: i, msg: `${n} 휴직 중` }); } });
   }
   return issues;
 }

@@ -11,7 +11,9 @@ const days = r.weeks.flatMap(w => w.days);
 assert.strictEqual(days.filter(d => d.wd === '일').length, 0, '일요일은 표에 없음');
 assert.ok(days.find(d => d.date === '2026-11-03').names.every(n => !n), '공휴일은 비워 둠');
 assert.deepStrictEqual(L.check({ weeks: r.weeks, roster }).filter(i => i.msg !== '빈칸'), [], '규칙 위반 없음');   // 팀 인원이 11명보다 적은 토요일의 빈칸은 의도한 동작(메모로 알림)
-assert.ok(L.check({ weeks: r.weeks, roster }).some(i => i.date === '2026-11-14') && r.notes.some(x => /14\(토\)/.test(x)), '인원 부족은 빈칸+메모');
+const s14 = r.weeks.flatMap(w => w.days).find(d => d.date === '2026-11-14'); assert.ok(s14.names.every(Boolean) && r.notes.some(x => /14\(토\)/.test(x)), '인원 부족은 처음부터 다시 채움+메모');
+const hc = L.generate({ year: 2026, month: 11, roster, history: { 10: [{ day: 17, wd: '토', names: teams[2].slice(0, 4).concat(Array(7).fill('')) }] }, holidays: {}, sat, exclude: new Set() }).weeks.flatMap(w => w.days).find(d => d.date === '2026-11-07');
+assert.strictEqual(hc.names[0], teams[2][4], '같은 팀의 직전 토요일 마지막 사람 다음부터 이어서');
 const wk1 = r.weeks[1].days.filter(d => d.wd !== '토' && !d.holiday); assert.ok(wk1.every(d => d.names.join() === wk1[0].names.join()), '평일은 한 주 같은 사람');
 const wk0 = r.weeks[0].days.filter(d => d.wd !== '토' && !d.holiday); assert.ok(wk0.length && wk0.every(d => !d.names.includes(pool[5])), '그 주(11/2~)에 하루라도 쉬는 사람은 그 주 담당에서 제외');
 assert.ok(!days.some(d => d.names.includes(pool[0]) || d.names.includes(pool[25])), '휴직자·제외자');

@@ -46,10 +46,27 @@ Hub.register({ id: 'roster', icon: '📅', desc: '재원·신환 환자의 이�
       <table class="data"><tr><th></th><th>날짜</th><th>주치의</th><th>구분</th><th>읽은 글자</th></tr>${O.items.map((x, i) => `<tr class="${x.sure ? '' : 'soft'}"><td><input type="checkbox" data-ok="${i}" ${x.use ? 'checked' : ''}></td><td class="nw">${x.date} (${wd(x.date)})</td>
       <td><select data-od="${i}"><option value="">?</option>${opts(['4', '6', '7', '8', '9'], x.doctor)}</select> ${x.sure ? '' : '<span class="err">확인</span>'}</td><td>${x.kind === 'pm' ? '오후' : '종일'}</td><td class="mute">${esc(x.raw)}</td></tr>`).join('') || '<tr><td colspan="5" class="mute">읽힌 항목이 없습니다. 아래 "쉬는 날 추가"로 직접 넣으세요.</td></tr>'}</table>
       ${O.items.length ? '<div class="row"><button id="ocrAdd" class="btn primary">체크한 항목 추가</button></div>' : ''}`; };
+  // 사진(붙여넣기·끌어놓기·파일 선택) → PNG로 바꿔 읽기. canvas를 거치므로 webp 같은 형식도 된다.
+  async function readOff(file) {
+    if (!file || !/^image\//.test(file.type)) return say('이미지 파일이 아닙니다', true);
+    S.tab = 'off'; if (!root.querySelector('#ocrBox')) { draw(); } const box = () => root.querySelector('#ocrBox');
+    S.ocr = { busy: true }; box().innerHTML = ocrHtml();
+    try {
+      const bmp = await createImageBitmap(file), cv = document.createElement('canvas'); cv.width = bmp.width; cv.height = bmp.height; cv.getContext('2d').drawImage(bmp, 0, 0);
+      const png = cv.toDataURL('image/png').split(',')[1], r = await invoke('roster:ocrOff', { png, year: S.year, month: S.month });
+      S.ocr = r.error ? { error: r.error } : { image: r.image, items: r.items.map(x => ({ ...x, use: x.sure })) };
+    } catch (e) { S.ocr = { error: '사진을 읽지 못했습니다: ' + e.message }; }
+    if (box()) box().innerHTML = ocrHtml();
+  }
+  const onPaste = e => { if (!root.isConnected) return document.removeEventListener('paste', onPaste); if (S.tab !== 'off') return; const f = [...(e.clipboardData?.files || [])].find(x => /^image\//.test(x.type)); if (f) { e.preventDefault(); readOff(f); } };
+  document.addEventListener('paste', onPaste);
+  root.ondragover = e => { if (S.tab === 'off') { e.preventDefault(); root.querySelector('#dropz')?.classList.add('over'); } };
+  root.ondragleave = () => root.querySelector('#dropz')?.classList.remove('over');
+  root.ondrop = e => { if (S.tab !== 'off') return; e.preventDefault(); root.querySelector('#dropz')?.classList.remove('over'); readOff([...e.dataTransfer.files][0]); };
   function pOff() {
     const I = S.info, items = []; for (const [d, l] of Object.entries(I.sheetOff)) l.forEach(x => items.push({ d, ...x, src: 'sheet' })); for (const [d, l] of Object.entries(I.offManual)) l.forEach((x, i) => items.push({ d, ...x, src: 'man', i })); items.sort((a, b) => a.d < b.d ? -1 : 1);
     $p().innerHTML = `<div class="mute">쉬는 주치의의 담당 환자는 그날 평가일로 잡지 않습니다(일반 평가만 — CCRT는 해당 없음). 시트 달력${I.calendar ? `(${I.calendar.year}년 ${I.calendar.month}월)` : ''}은 재활평가관리 파일의 당직의/오프 칸에서 읽습니다.</div>
-    <h2>사진으로 불러오기</h2><div class="row"><button id="ocrOff" class="btn primary">달력 사진 선택…</button><span class="mute">당직·오프 달력을 캡처한 사진(png·jpg)에서 "(RM8 OFF)·연차·오후반차"를 읽습니다. 숫자 6·8·9는 헷갈릴 수 있으니 반드시 확인하세요.</span></div><div id="ocrBox">${ocrHtml()}</div>
+    <h2>사진으로 불러오기</h2><div class="dropz" id="dropz">당직·오프 달력 사진을 <b>여기로 끌어놓거나</b>, 캡처한 뒤 <b>Ctrl+V로 붙여넣으세요</b> — 넣으면 바로 읽습니다. <button id="ocrOff" class="btn">파일 선택…</button><input type="file" id="ocrFile" accept="image/*" hidden><div class="mute">"(RM8 OFF)·연차·오후반차"를 읽습니다. 숫자 6·8·9는 헷갈릴 수 있으니 반드시 확인하세요.</div></div><div id="ocrBox">${ocrHtml()}</div>
     <h2>쉬는 날 추가</h2><div class="row"><input type="date" id="offDate"> 주치의 RM <select id="offDoc">${opts(['4', '6', '7', '8', '9'], '4')}</select><label><input type="checkbox" id="offPm"> 오후만</label><button id="addOff" class="btn primary">추가</button></div>
     <table class="data"><tr><th>날짜</th><th>주치의</th><th>구분</th><th>출처</th><th></th></tr>${items.map(x => `<tr><td class="nw">${x.d} (${wd(x.d)})</td><td>RM${esc(x.doctor)}</td><td>${x.pm ? '오후' : '종일'}</td><td>${x.src === 'sheet' ? '시트 달력' : (x.from || '직접 입력')}</td><td>${x.src === 'man' ? `<button data-del="${x.d}|${x.i}">삭제</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="mute">없음</td></tr>'}</table>`;
   }
@@ -67,8 +84,7 @@ Hub.register({ id: 'roster', icon: '📅', desc: '재원·신환 환자의 이�
     if (seg && seg.id === 'scopeSeg' && d.v) { S.scope = d.v; S.res = null; return pList(); }
     if (t.id === 'run') { say('만드는 중…'); try { const r = await invoke('roster:run', { from: S.from, to: S.to, year: S.year, month: S.month, scope: S.scope }); if (r.error) return say(r.error, true); S.res = r; say(`${r.rows.length}명의 초안을 만들었습니다`); } catch (err) { say('실패: ' + err.message, true); } pList(); }
     if (t.id === 'save') { const p = await invoke('roster:save', { month: S.month, batch: S.scope === 'new' ? `2차 명단(${+S.from.slice(8)}일~${+S.to.slice(8)}일 입원자)` : '', rows: S.res.rows }); say(p ? '저장했습니다: ' + p : '저장을 취소했습니다'); }
-    if (t.id === 'ocrOff') { S.ocr = { busy: true }; const box = root.querySelector('#ocrBox'); box.innerHTML = ocrHtml(); const r = await invoke('roster:ocrOff', { year: S.year, month: S.month }); if (!r) { S.ocr = null; return box.innerHTML = ''; }
-      S.ocr = r.error ? { error: r.error } : { image: r.image, items: r.items.map(x => ({ ...x, use: x.sure })) }; return box.innerHTML = ocrHtml(); }
+    if (t.id === 'ocrOff') return root.querySelector('#ocrFile').click();
     if (t.id === 'ocrAdd') { let n = 0; for (const x of S.ocr.items.filter(x => x.use && x.doctor)) { const l = (S.info.offManual[x.date] ??= []); if (!l.some(y => y.doctor === x.doctor && !!y.pm === (x.kind === 'pm'))) { l.push({ doctor: x.doctor, pm: x.kind === 'pm', from: '사진' }); n++; } } await persist(); S.res = null; S.ocr = null; say(`${n}건을 추가했습니다`); return pOff(); }
     if (t.id === 'addOff') { const dt = root.querySelector('#offDate').value; if (!dt) return say('날짜를 고르세요', true); (S.info.offManual[dt] ??= []).push({ doctor: root.querySelector('#offDoc').value, pm: root.querySelector('#offPm').checked }); await persist(); S.res = null; pOff(); }
     if (d.del) { const [dt, i] = d.del.split('|'); S.info.offManual[dt].splice(+i, 1); if (!S.info.offManual[dt].length) delete S.info.offManual[dt]; await persist(); S.res = null; pOff(); }
@@ -76,6 +92,7 @@ Hub.register({ id: 'roster', icon: '📅', desc: '재원·신환 환자의 이�
   };
   root.oninput = e => { const d = e.target.dataset; if (e.target.id === 'fq') { S.q = e.target.value; return applyFilter(); } if (d.k) S.info.rules[d.k] = Number(e.target.value); if (d.f) { const [k, i] = d.f.split('|'); S.res.rows[+i][k] = e.target.value; } };
   root.onchange = e => { const t = e.target;
+    if (t.id === 'ocrFile') { readOff(t.files[0]); t.value = ''; return; }
     if (t.dataset.ok != null) S.ocr.items[+t.dataset.ok].use = t.checked; if (t.dataset.od != null) { const x = S.ocr.items[+t.dataset.od]; x.doctor = t.value; x.sure = !!t.value; }
     if (t.id === 'from') S.from = t.value; if (t.id === 'to') S.to = t.value; if (t.id === 'yy') { S.year = +t.value; S.res = null; } if (t.id === 'mm') { S.month = +t.value; S.res = null; }
     if (t.dataset.d != null) { S.res.rows[+t.dataset.d].date = t.value || null; const y = scrollY; pList(); scrollTo(0, y); } };

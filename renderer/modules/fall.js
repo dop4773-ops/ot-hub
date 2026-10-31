@@ -23,7 +23,7 @@ Hub.register({ id: 'fall', icon: '🚶', desc: '평일은 주 단위, 토요일�
       <div class="mute">캘린더 설정의 "비공개 주소(iCal 형식)"를 붙여 넣으세요. 「이름T연차」「이름T오후반차」는 그날 쉬는 사람으로, 「3팀」처럼 팀 이름만 적힌 일정(반복 포함)은 그날 근무하는 팀으로 읽습니다. 읽기만 합니다.</div>
       <div class="row"><input id="calUrl" type="url" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics" value="${esc(S.data.calendarUrl)}" style="width:480px"><button id="calSave">저장하고 확인</button><button id="calFile">.ics 파일로 대신</button></div></details>
     <div class="row" style="align-items:flex-start"><label>공휴일 (날짜 이름, 한 줄에 하나)</label><textarea id="hol" rows="3" cols="26" placeholder="2026-11-04 임시공휴일">${esc(S.holText)}</textarea><span class="mute">공휴일은 표에서 비워 두고 이름만 적습니다. 일요일은 표에 없습니다.${S.data.hasSaturday ? '' : ' <span class="warn">「파일 연결」에서 "토요일&공휴일 시간표"를 연결하면 그날 근무 팀과 3층 근무자를 자동으로 반영합니다.</span>'}</span></div>
-    ${R ? `${notes()}${special()}<div class="mute" style="margin:8px 0">칸을 누르면 사람을 바꿀 수 있습니다. 평일 칸은 그 주 월~금이 함께 바뀌고, 토요일 칸은 하루만 바뀝니다. 빨간 칸은 확인이 필요합니다. <span class="cell edited" style="padding:0 6px">주황 테두리</span> = 직접 바꾼 칸(화면 표시일 뿐 저장되는 엑셀에는 나타나지 않습니다).</div>${preview()}` : '<div class="mute" style="margin-top:12px">월·층을 고르고 "배정하기"를 누르면 시트 모양으로 미리 보여 드립니다.</div>'}`;
+    ${R ? `${notes()}${special()}<div class="mute" style="margin:8px 0">칸을 누르면 이름 검색 창이 뜹니다(입력 → Enter, 취소·비우기 버튼 있음). 평일 칸은 그 주 월~금이 함께 바뀌고, 토요일 칸은 하루만 바뀝니다. 빨간 칸은 확인이 필요합니다. <span class="cell edited" style="padding:0 6px">주황 테두리</span> = 직접 바꾼 칸(화면 표시일 뿐 저장되는 엑셀에는 나타나지 않습니다).</div>${preview()}` : '<div class="mute" style="margin-top:12px">월·층을 고르고 "배정하기"를 누르면 시트 모양으로 미리 보여 드립니다.</div>'}`;
   }
   const notes = () => S.res.notes.length ? `<div class="box warnbox"><b>확인할 점</b><ul>${S.res.notes.slice(0, 12).map(n => `<li>${esc(n)}</li>`).join('')}</ul></div>` : '';
   // 토요일·공휴일 근무자 확인: 누가 어느 층에서 근무하는지(시트의 빨간 테두리), 쉬는 사람. 눌러서 고치면 다시 배정에 반영된다.
@@ -40,18 +40,35 @@ Hub.register({ id: 'fall', icon: '🚶', desc: '평일은 주 단위, 토요일�
     return halves.map(half => `<div class="scroll sheetwrap"><table class="sheet"><tr><th class="tm">날짜</th>${half.map(th).join('')}</tr>${S.data.slots.map((s, i) => `${i === 5 ? `<tr><td class="tm mute">점심시간</td><td colspan="${half.length}" class="lunch"></td></tr>` : ''}<tr><td class="tm">${esc(s)}</td>${half.map(d => td(d, i)).join('')}</tr>`).join('')}</table></div>`).join('')
       + `<div class="mute">토요일·공휴일 열 색: ${Object.values(TEAM).map(([bg, l]) => `<span class="tm2" style="background:${bg}">${l}</span>`).join(' ')}</div>`;
   }
+  // 칸 바꾸기: 칸을 누르면 이름 검색 창이 뜬다(입력하면 바로 걸러지고 Enter = 첫 번째, Esc/바깥 클릭 = 취소, 비우기 = 칸을 빈칸으로)
+  async function setCell(date, i, value) {
+    const wk = S.res.weeks.find(w => w.days.some(d => d.date === date)), day = wk.days.find(d => d.date === date);
+    (day.wd === '토' ? [day] : wk.days.filter(d => d.wd !== '토' && !d.holiday)).forEach(d => { d.names[+i] = value; S.edited.add(d.date + '|' + i); });
+    await recheck(); draw();
+  }
+  let pop = null; const closePop = () => { if (pop) { pop.remove(); pop = null; document.removeEventListener('mousedown', outside, true); } };
+  const outside = e => { if (pop && !pop.contains(e.target)) closePop(); };
+  function openPick(cell) {
+    closePop(); const date = cell.dataset.date, i = cell.dataset.i, cur = cell.textContent.trim(), box = cell.getBoundingClientRect();
+    pop = document.createElement('div'); pop.className = 'pickpop'; pop.style.cssText = `left:${Math.min(box.left, innerWidth - 230)}px;top:${Math.min(box.bottom + 2, innerHeight - 330)}px`;
+    pop.innerHTML = `<input placeholder="이름 검색…" value=""><div class="pl"></div><div class="pbtn"><button data-x="clear">비우기</button><button data-x="cancel">취소</button></div>`;
+    document.body.appendChild(pop); const inp = pop.querySelector('input'), list = pop.querySelector('.pl');
+    const show = () => { const q = inp.value.trim(), m = names().filter(n => !q || n.includes(q)); list.innerHTML = m.map(n => `<div class="pi ${n === cur ? 'cur' : ''}" data-n="${esc(n)}">${esc(n)}</div>`).join('') || '<div class="mute" style="padding:6px">없음</div>'; };
+    show(); inp.focus(); inp.oninput = show;
+    inp.onkeydown = e => { if (e.key === 'Escape') closePop(); if (e.key === 'Enter') { const f = list.querySelector('.pi'); if (f) { closePop(); setCell(date, i, f.dataset.n); } } };
+    pop.onclick = e => { const n = e.target.closest('.pi'), x = e.target.dataset.x; if (n) { closePop(); setCell(date, i, n.dataset.n); } else if (x === 'clear') { closePop(); setCell(date, i, ''); } else if (x === 'cancel') closePop(); };
+    setTimeout(() => document.addEventListener('mousedown', outside, true));
+  }
   async function recheck() { S.issues = await invoke('fall:check', { weeks: S.res.weeks }); }
   async function generate() { say('배정하는 중…'); S.res = await invoke('fall:generate', { year: S.year, month: S.month, floor: S.floor, holidays: holidays(), seed: Date.now() % 1e6, overrides: S.ov }); S.issues = S.res.issues; S.edited.clear(); say('배정했습니다'); draw(); }
   root.oninput = e => { if (e.target.id === 'hol') S.holText = e.target.value; };
   root.onchange = async e => {
     const t = e.target;
     if (t.id === 'yy') { S.year = +t.value; S.res = null; S.ov = {}; setHol(); draw(); } if (t.id === 'mm') { S.month = +t.value; S.res = null; S.ov = {}; setHol(); draw(); } if (t.id === 'floor') { S.floor = t.value; S.res = null; draw(); }
-    if (t.dataset.pick) { const [date, i] = t.dataset.pick.split('|'), wk = S.res.weeks.find(w => w.days.some(d => d.date === date)), day = wk.days.find(d => d.date === date);
-      (day.wd === '토' ? [day] : wk.days.filter(d => d.wd !== '토' && !d.holiday)).forEach(d => { d.names[+i] = t.value; S.edited.add(d.date + '|' + i); }); await recheck(); draw(); }
   };
   root.onclick = async e => {
     const t = e.target, c = t.closest('.cell');
-    if (c && !c.querySelector('select')) { const cur = c.textContent; c.innerHTML = `<select data-pick="${c.dataset.date}|${c.dataset.i}"><option value=""></option>${names().map(n => `<option ${n === cur ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`; c.querySelector('select').focus(); return; }
+    if (c) return openPick(c);
     const sp = t.closest('[data-sp]'); if (sp) { const [date, name] = sp.dataset.sp.split('|'), p = S.res.info[date].people.find(x => x.name === name); ((S.ov[date] ??= {}).floor3 ??= {})[name] = !p.floor3; p.floor3 = !p.floor3; draw(); say('다시 배정하면 반영됩니다'); return; }
     if (t.id === 'run') generate();
     if (t.id === 'save') { const p = await invoke('fall:save', { year: S.year, month: S.month, weeks: S.res.weeks, floor: S.floor }); say(p ? '저장했습니다: ' + p : '저장을 취소했습니다'); }
