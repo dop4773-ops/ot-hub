@@ -10,7 +10,7 @@ const BLUE = 'FF2563EB', RED = 'FFDC2626', GRAY = 'FFD1D5DB';
 function dayStyle(date, holidays) {
   if (holidays.has(date)) return { color: RED, fill: GRAY };
   const w = dow(date);
-  return w === 0 ? { color: RED } : w === 6 ? { color: BLUE } : {};
+  return w === 0 ? { color: RED, fill: GRAY } : w === 6 ? { color: BLUE } : {};
 }
 
 function buildSheet(wb, { year, month, floorLabel, names, half, holidays, perBlock, workWeekend }) {

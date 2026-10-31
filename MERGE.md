@@ -37,6 +37,12 @@ renderer/modules/<id>.js   화면 — Hub.register({id,title,render(root)})   �
 - 자동 업데이트: `shared/updater.js`(electron 모름, 시험 있음) — rehab-hub에는 이미 `main/updater.js`가 있으니 합칠 때는 그쪽을 쓰고 이 파일은 버린다
 - 청소 배치도: `cleaning/floorplan.js`(Sheet1 → 칸·색) + 화면의 MAP(칸 글자 → 구역) — 합칠 때 화면 쪽 MAP만 옮김
 
+## 내보내기(서식) 원칙
+모든 내보내기는 **원본 파일의 서식을 그대로** 쓴다 — 새로 그리지 않고 원본을 열어 값만 바꾼다.
+- 출근부: 원본이 조건부 서식(x14)·쪽 나눔을 써서 ExcelJS로는 못 다루므로 엑셀 파일 안쪽(XML)을 직접 편집 (`attendance/template.js`)
+- 낙상 순회: 낙상방지 파일의 '원본' 시트(수식이 날짜·요일을 채움) / 청소분담: 최신 분기 시트 + '대청소' 시트 / SCI: 최신 월 시트 / 평가일 관리: POT 통합 파일의 시트 — ExcelJS로 열어 줄만 새로 쓴다
+- 합칠 때 rehab-hub의 엑셀 쓰기(SheetJS)로 바꿔야 하는 부분은 위 5개 template/export 파일뿐이다.
+
 ## 시험
 `npm test` — Node만으로 도는 규칙 시험(직급 정렬 · 새 구역 우선 · CCRT 규칙 · 출근부 서식 · 도구목록 반영).
 실제 파일이 필요한 확인은 앱을 띄워 화면에서 합니다.

@@ -53,7 +53,7 @@ function apply(items, imported) {
   for (const r of imported) {
     const a = r.action; if (!a) { pending.push(r); continue; } if (a === '제외') continue;
     const tgt = r.matchId ? next.find(i => i.id === r.matchId) : null;
-    if (a === '신규') { next.push({ id: ++id, section: r.section || 'Activity', name: r.name, qty: r.qty, kind: r.kind || '비품', note: r.note || '', isNew: true }); log.push({ ...r, result: `신규 등록 ${r.qty}개 (${r.section || 'Activity'}·${r.kind || '비품'})` }); }
+    if (a === '신규') { next.push({ id: ++id, section: r.section || 'Activity', name: r.name, qty: r.qty, kind: r.kind || '비품', note: [r.floor ? (r.floor === '3F' ? '3층' : '10층') : '', r.note].filter(Boolean).join(' · '), floor: r.floor ? (r.floor === '3F' ? '3층' : '10층') : '', isNew: true }); log.push({ ...r, result: `신규 등록 ${r.qty}개 (${r.section || 'Activity'}·${r.kind || '비품'})` }); }
     else if (!tgt) pending.push({ ...r, why: '연결할 기존 품목이 없음' });
     else if (a === '추가') { tgt.qty += r.qty; log.push({ ...r, result: `${tgt.name} 수량 ${tgt.qty - r.qty} → ${tgt.qty}` }); }
     else if (a === '교체') log.push({ ...r, result: `${tgt.name} 폐기 후 보충 ${r.qty}개 — 재고량 ${tgt.qty}개 그대로` });

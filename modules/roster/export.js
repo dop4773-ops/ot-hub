@@ -16,4 +16,21 @@ function build({ month, batch, rows }) {
   });
   return wb;
 }
-module.exports = { build };
+
+// POT 통합 평가명단 파일의 시트(글꼴·너비·테두리·날짜 표시 형식·오른쪽 안내표)를 그대로 열어 환자 줄만 새로 채운다.
+async function buildFromTemplate({ templateFile, month, batch, rows }) {
+  const wb = new ExcelJS.Workbook(); await wb.xlsx.readFile(templateFile);
+  const ws = wb.worksheets[0];
+  const styleOf = c => ({ font: c.font, alignment: c.alignment, border: c.border, fill: c.fill, numFmt: c.numFmt });
+  const base = Array.from({ length: 8 }, (_, i) => styleOf(ws.getCell(3, i + 1))), baseH = ws.getRow(3).height;
+  for (let r = 3; r <= Math.max(ws.rowCount, rows.length + 2); r++) for (let c = 1; c <= 8; c++) { const cell = ws.getCell(r, c); cell.value = null; }
+  rows.forEach((x, i) => {
+    const r = 3 + i, vals = [`RM${x.doctor}`, x.room, x.name, x.pt, x.ot, x.date ? new Date(x.date + 'T00:00:00Z') : null, x.memo ?? (x.notes || []).join(' · '), i === 0 && batch ? batch : x.isNew ? '신환' : ''];
+    vals.forEach((v, c) => { const cell = ws.getCell(r, c + 1); cell.value = v; if (r > 18 || !cell.border || !cell.border.left) Object.assign(cell, { font: base[c].font, alignment: base[c].alignment, border: base[c].border, fill: base[c].fill, numFmt: base[c].numFmt }); });
+    if (baseH) ws.getRow(r).height = baseH;
+  });
+  for (const other of wb.worksheets.slice(1)) wb.removeWorksheet(other.id);
+  ws.name = `${month}월 평가일정 `;
+  return wb;
+}
+module.exports = { build, buildFromTemplate };

@@ -8,10 +8,11 @@ const { createUpdateManager } = require('./shared/updater');
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 const read = () => { try { return JSON.parse(fs.readFileSync(settingsFile(), 'utf8')); } catch { return {}; } };
 const settings = {
-  all: () => { const s = read(); return { files: {}, emr: [], mod: {}, ...s }; },
+  all: () => { const s = read(); return { files: {}, emr: [], pot: [], mod: {}, ...s }; },
   save: s => fs.writeFileSync(settingsFile(), JSON.stringify(s, null, 2)),
   files: () => settings.all().files,
   emr: () => settings.all().emr,
+  pot: () => settings.all().pot,
   mod: id => settings.all().mod[id] || {},
   setMod: (id, v) => { const s = settings.all(); s.mod[id] = v; settings.save(s); },
 };
@@ -35,6 +36,8 @@ ipcMain.handle('app:pickFile', async (_, role) => {
   return r.canceled ? null : r.filePaths[0];
 });
 ipcMain.handle('app:pickEmr', async () => { const r = await dialog.showOpenDialog({ properties: ['openFile', 'multiSelections'], filters: [{ name: '엑셀', extensions: ['xlsx'] }] }); return r.canceled ? null : r.filePaths; });
+ipcMain.handle('app:findMulti', async (_, role) => { const r = await dialog.showOpenDialog({ properties: ['openDirectory'] }); return r.canceled ? null : find(r.filePaths[0], role); });
+ipcMain.handle('app:setPot', (_, list) => { const s = settings.all(); s.pot = list; settings.save(s); return s; });
 ipcMain.handle('app:setEmr', (_, list) => { const s = settings.all(); s.emr = list; settings.save(s); return s; });
 ipcMain.handle('app:setMod', (_, id, v) => { settings.setMod(id, v); return true; });
 ipcMain.handle('app:saveAs', async (_, { name, build }) => ({ canceled: true }));   // 자리표시 — 각 모듈이 저장 대화상자를 직접 호출한다
@@ -44,7 +47,7 @@ ipcMain.handle('app:importSettings', async () => {
   if (r.canceled) return null;
   const s = JSON.parse(fs.readFileSync(r.filePaths[0], 'utf8'));
   for (const k of Object.keys(s.files || {})) if (!fs.existsSync(s.files[k])) delete s.files[k];   // 이 PC에 없는 경로는 버린다
-  settings.save({ files: {}, emr: [], mod: {}, ...s, emr: (s.emr || []).filter(f => fs.existsSync(f)) }); return settings.all();
+  settings.save({ files: {}, emr: [], pot: [], mod: {}, ...s, emr: (s.emr || []).filter(f => fs.existsSync(f)), pot: (s.pot || []).filter(f => fs.existsSync(f)) }); return settings.all();
 });
 
 // ---- 자동 업데이트 (설치본에서만 동작, GitHub 공개 릴리즈 latest.yml 확인) ----
@@ -71,6 +74,7 @@ async function warmUp() {
   if (f.supply) add(() => require('./modules/inventory/request').loadRequests(f.supply));
   for (const k of ['timetable10', 'timetable3']) if (f[k]) add(() => require('./shared/timetable').loadTimetableCards(f[k]));
   if (settings.emr().length) add(() => require('./modules/roster/emr').loadEmr(settings.emr()));
+  if (settings.pot().length) add(() => require('./shared/pot').loadPot(settings.pot()));
   if (f.messenger) add(() => require('./shared/messenger').loadDischarges(f.messenger));
   for (const t of tasks) await t();                         // 하나씩(동시에 많이 읽으면 오히려 느려진다)
   console.log(`미리 읽기 완료 ${Date.now() - t0}ms`);

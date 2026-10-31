@@ -4,10 +4,10 @@ Hub.register({ id: 'inventory', icon: '🧰', desc: '청구서를 읽어 비품�
   const ACT = [['신규', '새 도구 등록'], ['추가', '수량 추가'], ['교체', '폐기 후 보충'], ['소진', '소모품 사용'], ['제외', '목록 대상 아님']];
   const HELP = { 신규: '목록에 없는 새 도구를 등록합니다', 추가: '이미 있는 도구의 수량을 늘립니다', 교체: '낡은 것을 버리고 다시 채운 것 — 재고량은 그대로, 이력만 남깁니다', 소진: '소모품을 쓴 기록만 남깁니다(재고 변화 없음)', 제외: '정기 사무용품 등 이 목록에서 관리하지 않는 것' };
   const CONSUMABLE = /사탕|풍선|건전지|테이프|종이컵|컵|티슈|세제|장갑|마스크|소독|스프레이|분무|라벨|밴드|젤리|물티슈|쿠키|간식/;
-  const S = { tab: 'list', items: [], sheets: [], sec: '전체', kind: '전체', q: '', sel: null, picked: new Set(), view: '전체', act: {}, res: null };
+  const S = { tab: 'list', items: [], sheets: [], sec: '전체', kind: '전체', q: '', sel: null, pick: '', fl: '전체', view: '전체', act: {}, res: null };
   let saveT; const persist = () => { clearTimeout(saveT); saveT = setTimeout(() => invoke('inventory:saveDraft', S.act), 400); };
   const byId = id => S.items.find(i => i.id === id);
-  const reqs = () => S.sheets.filter(s => S.picked.has(s.name)).flatMap(s => s.items);
+  const reqs = () => S.sheets.filter(s => s.name === S.pick).flatMap(s => s.items);
   const stateOf = r => { const a = S.act[r.id]; return a ? a : r.area === 'standard' ? { action: '제외', auto: true } : { action: '' }; };
 
   async function load() {
@@ -15,7 +15,7 @@ Hub.register({ id: 'inventory', icon: '🧰', desc: '청구서를 읽어 비품�
     root.innerHTML = '<div class="mute">읽는 중…</div>';
     const r = await invoke('inventory:load'); if (r.error) { root.innerHTML = `<div class="warn">${esc(r.error)}</div>`; return; }
     S.items = r.items; S.sheets = r.sheets; S.act = r.draft || {}; S.hasSupply = r.hasSupply;
-    S.sheets.forEach(s => { if (!s.done) S.picked.add(s.name); });
+    const first = S.sheets.find(s => !s.done) || S.sheets[0]; S.pick = first ? first.name : '';       // 아직 반영하지 않은 가장 최근 청구부터
     draw();
   }
   const draw = () => { root.innerHTML = tabsHtml([['list', '① 목록'], ['imp', `② 청구서 가져오기·분류${pending() ? ` · 미분류 ${pending()}` : ''}`], ['save', '③ 반영·저장']], S.tab) + '<div id="pane"></div>'; ({ list: pList, imp: pImp, save: pSave })[S.tab](); };
@@ -26,14 +26,14 @@ Hub.register({ id: 'inventory', icon: '🧰', desc: '청구서를 읽어 비품�
   /* ① 목록 */
   function histOf(it) { return S.sheets.flatMap(s => s.items.filter(r => r.matchId === it.id).map(r => ({ ...r }))); }
   function pList() {
-    const rows = S.items.filter(i => (S.sec === '전체' || i.section === S.sec) && (S.kind === '전체' || i.kind === S.kind) && (!S.q || i.name.toLowerCase().includes(S.q.toLowerCase())));
+    const rows = S.items.filter(i => (S.sec === '전체' || i.section === S.sec) && (S.kind === '전체' || i.kind === S.kind) && (S.fl === '전체' || (S.fl === '공통' ? !i.floor : i.floor === S.fl)) && (!S.q || i.name.toLowerCase().includes(S.q.toLowerCase())));
     const cnt = k => S.items.filter(i => i.section === k).length, sel = S.sel && byId(S.sel);
     const seg = (id, list, cur) => `<div class="seg" id="${id}">${list.map(([v, l]) => `<button data-v="${v}" class="${v === cur ? 'active' : ''}">${l}</button>`).join('')}</div>`;
     pane().innerHTML = `<div class="row">${seg('secSeg', [['전체', `전체 ${S.items.length}`], ['Activity', `작업치료실 ${cnt('Activity')}`], ['ADL', `ADL ${cnt('ADL')}`], ['RDT', `RDT ${cnt('RDT')}`]], S.sec)}
-      ${seg('kindSeg', [['전체', '전체'], ['비품', '비품'], ['소모품', '소모품']], S.kind)}<input id="q" type="search" placeholder="🔍 도구명 검색" value="${esc(S.q)}" style="width:200px"><span class="mute">${rows.length}개</span></div>
+      ${seg('kindSeg', [['전체', '전체'], ['비품', '비품'], ['소모품', '소모품']], S.kind)}${seg('flSeg', [['전체', '층 전체'], ['10층', '10층'], ['3층', '3층'], ['공통', '공통']], S.fl)}<input id="q" type="search" placeholder="🔍 도구명 검색" value="${esc(S.q)}" style="width:200px"><span class="mute">${rows.length}개</span></div>
     <div class="two"><div class="scroll"><table class="data"><tr><th>도구명</th><th style="width:60px">수량</th><th style="width:70px">구분</th><th>비고</th></tr>
     ${rows.map(i => `<tr data-row="${i.id}" class="clk ${i.id === S.sel ? 'sel' : ''} ${i.isNew ? 'soft' : ''}"><td><b>${esc(i.name)}</b></td><td class="num">${i.qty}</td><td>${badge(i.kind)}</td><td class="mute">${esc(i.note)}</td></tr>`).join('') || '<tr><td colspan="4" class="mute">조건에 맞는 도구가 없습니다</td></tr>'}</table></div>
-    <div class="card inner">${sel ? `<h2>${esc(sel.name)}</h2><div class="kv"><span>구역</span><b>${esc(sel.section)}</b><span>수량</span><b>${sel.qty}개</b><span>구분</span><b>${badge(sel.kind)}</b>${sel.note ? `<span>비고</span><b>${esc(sel.note)}</b>` : ''}</div>
+    <div class="card inner">${sel ? `<h2>${esc(sel.name)}</h2><div class="kv"><span>구역</span><b>${esc(sel.section)}</b>${sel.floor ? `<span>층</span><b>${esc(sel.floor)}</b>` : ''}<span>수량</span><b>${sel.qty}개</b><span>구분</span><b>${badge(sel.kind)}</b>${sel.note ? `<span>비고</span><b>${esc(sel.note)}</b>` : ''}</div>
       <h2>청구 이력</h2>${histOf(sel).length ? `<table class="data">${histOf(sel).map(h => `<tr><td class="nw">${esc(h.date.slice(5))} ${esc(h.floor)}</td><td>${esc(h.name)}${h.spec ? ` (${esc(h.spec)})` : ''} ×${h.qty}</td><td class="mute">${esc(h.reason)}</td></tr>`).join('')}</table>` : '<div class="mute">청구서에서 찾은 이력이 없습니다</div>'}`
       : '<div class="mute">왼쪽에서 도구를 누르면 상세와 청구 이력이 보입니다.</div>'}</div></div>`;
   }
@@ -44,7 +44,8 @@ Hub.register({ id: 'inventory', icon: '🧰', desc: '청구서를 읽어 비품�
     const list = reqs().filter(r => S.view === '전체' || (S.view === '기타' && r.area === 'extra') || (S.view === '미분류' && !stateOf(r).action) || (S.view === '목록에 없음' && r.matchKind === '목록에 없음' && stateOf(r).action !== '제외'));
     const all = reqs(), un = all.filter(r => !stateOf(r).action), miss = all.filter(r => r.matchKind === '목록에 없음' && !['제외', '신규'].includes(stateOf(r).action) && r.area === 'extra');
     pane().innerHTML = `<div class="mute">청구서(사무용품 청구서) 시트마다 한 번의 청구입니다. 인쇄된 정기 사무용품은 자동으로 "목록 대상 아님"이고, <b>기타 주문건</b>만 분류하면 됩니다.</div>
-    <h2>가져올 청구</h2><div class="chips">${S.sheets.map(s => `<span class="chip ${S.picked.has(s.name) ? 'on' : ''}" data-sheet="${esc(s.name)}">${esc(s.date.slice(5))} ${esc(s.floor)} <span class="mute">기타 ${s.items.filter(i => i.area === 'extra').length}</span>${s.done ? ' <span class="ok">✓반영함</span>' : ''}</span>`).join('') || '<span class="mute">청구 시트가 없습니다</span>'}</div>
+    <h2>청구 날짜 <span class="mute">(눌러서 하나를 고르면 그 청구만 나옵니다)</span></h2>
+    ${['10F', '3F'].map(fl => { const list = S.sheets.filter(x => x.floor === fl); return list.length ? `<div class="datebar"><b class="fl">${fl === '10F' ? '10층' : '3층'}</b>${list.map(x => `<button class="datebtn ${x.name === S.pick ? 'on' : ''} ${x.done ? 'done' : ''}" data-sheet="${esc(x.name)}">${esc(x.date.slice(5).replace('-', '/'))}<small>기타 ${x.items.filter(i => i.area === 'extra').length}${x.done ? ' · 반영함' : ''}</small></button>`).join('')}</div>` : ''; }).join('') || '<span class="mute">청구 시트가 없습니다</span>'}
     <div class="strip"><b>${all.length}건</b><span class="${un.length ? 'err' : 'ok'}">미분류 ${un.length}</span><span class="${miss.length ? 'err' : 'ok'}">목록에 없는 기타 품목 ${miss.length}</span>
       <div class="seg" id="viewSeg">${['전체', '기타', '미분류', '목록에 없음'].map(v => `<button data-v="${v}" class="${v === S.view ? 'active' : ''}">${v === '기타' ? '기타 주문건' : v}</button>`).join('')}</div></div>
     <datalist id="itemsList">${S.items.map(i => `<option value="${esc(i.name)}"></option>`).join('')}</datalist>
@@ -75,10 +76,11 @@ Hub.register({ id: 'inventory', icon: '🧰', desc: '청구서를 읽어 비품�
     const row = t.closest('[data-row]'); if (row) { S.sel = Number(row.dataset.row); return pList(); }
     if (seg && seg.id === 'secSeg' && d.v) { S.sec = d.v; return pList(); }
     if (seg && seg.id === 'kindSeg' && d.v) { S.kind = d.v; return pList(); }
+    if (seg && seg.id === 'flSeg' && d.v) { S.fl = d.v; return pList(); }
     if (seg && seg.id === 'viewSeg' && d.v) { S.view = d.v; return pImp(); }
     if (seg && seg.classList.contains('act') && d.a) { const id = seg.dataset.act, cur = S.act[id] || {}; S.act[id] = { ...cur, action: cur.action === d.a ? '' : d.a }; persist(); const y = scrollY; pImp(); draw.tabLabel?.(); root.querySelectorAll('.tabs button')[1].textContent = `② 청구서 가져오기·분류${pending() ? ` · 미분류 ${pending()}` : ''}`; return; }
-    const chip = t.closest('[data-sheet]'); if (chip) { const n = chip.dataset.sheet; S.picked.has(n) ? S.picked.delete(n) : S.picked.add(n); return pImp(); }
-    if (t.id === 'save') { const p = await invoke('inventory:save', { items: S.res.items, log: S.res.log, sheets: [...S.picked] }); if (p) { say('저장했습니다: ' + p); S.sheets.forEach(s => { if (S.picked.has(s.name)) s.done = new Date().toISOString().slice(0, 10); }); S.act = {}; } else say('저장을 취소했습니다'); }
+    const chip = t.closest('[data-sheet]'); if (chip) { S.pick = chip.dataset.sheet; S.view = '전체'; return pImp(); }
+    if (t.id === 'save') { const p = await invoke('inventory:save', { items: S.res.items, log: S.res.log, sheets: [S.pick] }); if (p) { say('저장했습니다: ' + p); S.sheets.forEach(s => { if (s.name === S.pick) s.done = new Date().toISOString().slice(0, 10); }); S.act = {}; } else say('저장을 취소했습니다'); }
   };
   root.oninput = e => { if (e.target.id === 'q') { S.q = e.target.value; const p = e.target.selectionStart; pList(); const el = root.querySelector('#q'); el.focus(); el.setSelectionRange(p, p); } };
   root.onchange = e => {

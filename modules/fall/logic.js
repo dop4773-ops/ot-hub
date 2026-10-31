@@ -67,22 +67,26 @@ function weeksOf(year, month, holidays) {
   return weeks;
 }
 
-function generate({ year, month, roster, history = {}, holidays = {}, startTeam = null, seed = 1 }) {
+// 입력: roster(치료사명단) · history(월별 이력) · holidays{date:이름} · leaves{date:[{name}]} · sat{date:{team,people:[{name,extra,red}]}}(토요일 시트) · teams{date:팀}(캘린더) · floor('10층'|'3층') · overrides{date:{exclude:[]},week:{...}}
+// 평일: 그 주 월~금 중 하루라도 쉬는 사람은 그 주 담당에서 뺀다. 토요일: 그날 근무 팀(토요일 시트 → 캘린더 → 순환 순)의 선생님만, 3층 근무자(빨간 테두리)는 10층에서 뺀다.
+function generate({ year, month, floor = '10층', roster, history = {}, holidays = {}, leaves = {}, sat = {}, teams = {}, exclude = new Set(), overrides = {}, redMin = 8, seed = 1 }) {
   const rnd = (() => { let a = seed; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; })();
   const T = tally(history), onLeave = new Set(roster.leave.filter(l => /휴직/.test(l.kind)).map(l => l.name));
-  const pool = roster.weekday10.filter(n => !onLeave.has(n));
-  const weeks = weeksOf(year, month, holidays), wcnt = { ...T.wk }, scnt = { ...T.sat }, last = { ...T.lastSlot };
-  // 마지막 토요일 팀(이력의 가장 마지막 달 마지막 토요일) 다음 팀부터
-  let team = startTeam;
-  if (!team) { const ms = Object.keys(history).map(Number).sort((a, b) => b - a); let lastSat = null; for (const m of ms) { const sats = history[m].filter(d => d.wd === '토' && d.names.some(Boolean)); if (sats.length) { lastSat = sats[sats.length - 1]; break; } }
-    const who = lastSat && lastSat.names.find(n => n && NAME.test(n)); const t = who ? [1, 2, 3].find(k => roster.sat[k].includes(who)) : 0; team = (t % 3) + 1; }
+  const base = (floor === '3층' ? roster.weekday3 : roster.weekday10).filter(n => !onLeave.has(n) && !exclude.has(n));
+  const weeks = weeksOf(year, month, holidays), wcnt = { ...T.wk }, scnt = { ...T.sat }, last = { ...T.lastSlot }, notes = [], info = {};
+  const leaveOn = (n, d) => (leaves[d] || []).some(l => l.name === n) || ((overrides[d] || {}).exclude || []).includes(n);
+  // 가장 최근 토요일 팀 → 다음 팀 (순환) — 토요일 시트·캘린더에 없는 날의 마지막 수단
+  let rot = null; { const ms = Object.keys(history).map(Number).sort((a, b) => b - a); for (const m of ms) { const sats = history[m].filter(d => d.wd === '토' && d.names.some(Boolean)); if (sats.length) { const who = sats[sats.length - 1].names.find(n => n && NAME.test(n)); const t = who ? [1, 2, 3].find(k => roster.sat[k].includes(who)) : 0; rot = ((t || 0) % 3) + 1; break; } } if (!rot) rot = 1; }
   const out = [];
   for (const wk of weeks) {
-    const weekdays = wk.days.filter(d => d.wd !== '토' && !d.holiday), sat = wk.days.find(d => d.wd === '토' && !d.holiday);
-    const slotsOf = { };                                           // 평일 11칸: 시간대 i → 사람
+    const weekdays = wk.days.filter(d => d.wd !== '토' && !d.holiday), satDay = wk.days.find(d => d.wd === '토' && !d.holiday);
+    const slotsOf = {};
     if (weekdays.length) {
-      const order = [...pool].sort((a, b) => (wcnt[a] || 0) - (wcnt[b] || 0) || rnd() - 0.5), chosen = order.slice(0, 11);
-      // 사람마다 지난번 맡은 시간대와 다른 칸, 그리고 그 시간대를 적게 맡은 칸으로 — 사람 순서대로 가장 알맞은 빈 칸을 고른다
+      const avail = base.filter(n => !weekdays.some(d => leaveOn(n, d.date)));
+      const skipped = base.filter(n => !avail.includes(n));
+      if (skipped.length) notes.push(`${month}/${weekdays[0].day}~ 주: 쉬는 날이 있어 제외 — ${skipped.join(', ')}`);
+      const order = [...avail].sort((a, b) => (wcnt[a] || 0) - (wcnt[b] || 0) || rnd() - 0.5), chosen = order.slice(0, 11);
+      if (chosen.length < 11) notes.push(`${month}/${weekdays[0].day}~ 주: 후보가 ${chosen.length}명뿐이라 빈칸이 생깁니다`);
       const free = new Set(SLOTS.map((_, i) => i)), assign = {};
       for (const n of chosen.sort((a, b) => (T.slotCnt[b] ? 1 : 0) - (T.slotCnt[a] ? 1 : 0) || rnd() - 0.5)) {
         let best = null; for (const i of free) { const c = (last[n] === i ? 100 : 0) + ((T.slotCnt[n] || [])[i] || 0) + rnd() * 0.5; if (!best || c < best.c) best = { i, c }; }
@@ -90,17 +94,30 @@ function generate({ year, month, roster, history = {}, holidays = {}, startTeam 
       }
       for (let i = 0; i < 11; i++) slotsOf[i] = assign[i] || '';
     }
-    const satNames = [];
-    if (sat) {
-      const mine = roster.sat[team].filter(n => !onLeave.has(n)), others = [1, 2, 3].filter(t => t !== team).flatMap(t => roster.sat[t]).filter(n => !onLeave.has(n) && !mine.includes(n));
-      const pick = [...mine].sort((a, b) => (scnt[a] || 0) - (scnt[b] || 0) || rnd() - 0.5).slice(0, 11);
-      if (pick.length < 11) pick.push(...others.sort((a, b) => (scnt[a] || 0) - (scnt[b] || 0)).slice(0, 11 - pick.length));
-      pick.forEach(n => scnt[n] = (scnt[n] || 0) + 1); satNames.push(...pick);
+    // 토요일·공휴일 근무자 정보(화면에 보여 주고 고칠 수 있게 날짜마다 남긴다)
+    const special = wk.days.filter(d => d.wd === '토' || d.holiday), satNames = {};
+    for (const d of special) {
+      let sheet = sat[d.date], team = sheet ? sheet.team : teams[d.date] || (d.wd === '토' ? rot : null), source = sheet ? '토요일 시트' : teams[d.date] ? '캘린더' : '순환(추정)';
+      if (!sheet && team) { const prev = Object.keys(sat).filter(k => sat[k].team === team && k < d.date).sort().pop(); if (prev) { sheet = sat[prev]; source += ` · ${sat[prev].sheet} 시트의 근무자·3층 근무자 참고`; } }   // 시트가 없는 날은 같은 팀의 가장 최근 시트를 본뜬다
+      let people = [];
+      if (sheet) people = sheet.people.filter(p => !p.extra && !exclude.has(p.name)).map(p => ({ name: p.name, floor3: p.red >= redMin, red: p.red }));
+      else if (team) people = roster.sat[team].filter(n => !exclude.has(n)).map(n => ({ name: n, floor3: false, red: 0 }));
+      const ov = overrides[d.date] || {};
+      people.forEach(p => { if (ov.floor3 && p.name in ov.floor3) p.floor3 = !!ov.floor3[p.name]; p.off = !!leaveOn(p.name, d.date) || onLeave.has(p.name); });
+      info[d.date] = { team, source, holiday: d.holiday, people };
+      if (d.wd === '토' && !d.holiday) {
+        const pool = people.filter(p => (floor === '3층' ? p.floor3 : !p.floor3) && !p.off).map(p => p.name);
+        const pick = [...pool].sort((a, b) => (scnt[a] || 0) - (scnt[b] || 0) || rnd() - 0.5).slice(0, 11);
+        if (pick.length < 11) notes.push(`${month}/${d.day}(토): 근무 가능한 ${floor} 선생님이 ${pick.length}명뿐입니다 (${source}) — 직접 채워 주세요`);
+        pick.forEach(n => scnt[n] = (scnt[n] || 0) + 1); satNames[d.date] = pick;
+        if (source.startsWith('순환(추정)')) notes.push(`${month}/${d.day}(토): 근무 팀을 찾지 못해 순환으로 ${team}팀으로 추정했습니다 — 확인하세요`);
+      }
     }
-    out.push({ team: sat ? team : null, days: wk.days.map(d => ({ ...d, names: d.holiday ? Array(11).fill('') : d.wd === '토' ? (d.date === sat?.date ? satNames.slice(0, 11) : Array(11).fill('')) : SLOTS.map((_, i) => slotsOf[i] || '') })) });
-    if (sat) team = (team % 3) + 1;
+    out.push({ team: satDay && info[satDay.date] ? info[satDay.date].team : null, days: wk.days.map(d => ({ ...d, team: (info[d.date] || {}).team || null,
+      names: d.holiday ? Array(11).fill('') : d.wd === '토' ? Array.from({ length: 11 }, (_, i) => (satNames[d.date] || [])[i] || '') : SLOTS.map((_, i) => slotsOf[i] || '') })) });
+    if (satDay) rot = (rot % 3) + 1;
   }
-  return { weeks: out, team };
+  return { weeks: out, info, notes };
 }
 
 // 점검: 하루에 같은 사람이 두 번, 휴직자, 빈칸
@@ -113,30 +130,26 @@ function check({ weeks, roster }) {
   return issues;
 }
 
-/* ---------- 엑셀 ---------- */
+/* ---------- 엑셀: 낙상방지 파일의 '원본' 시트(서식·너비·글꼴·로고·가로 인쇄)를 그대로 열어 이름만 채운다 ---------- */
 const ExcelJS = require('exceljs');
-function build({ year, month, weeks }) {
-  const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet(`${month}월`), thin = { style: 'thin' }, box = { top: thin, left: thin, bottom: thin, right: thin };
-  const days = weeks.flatMap(w => w.days), halves = [days.filter(d => d.day <= 15), days.filter(d => d.day > 15)];
-  ws.getColumn(1).width = 3; ws.getColumn(2).width = 5; ws.getColumn(3).width = 15;
-  let top = 1;
-  for (const half of halves) {
-    if (!half.length) continue;
-    ws.mergeCells(top, 4, top, 4 + half.length * 2 - 1); const t = ws.getCell(top, 4); t.value = `작업치료실 낙상방지 순회 체크리스트 (${year}년 ${month}월)`; t.font = { bold: true, size: 14 }; t.alignment = { horizontal: 'center' };
-    ws.getCell(top + 2, 3).value = '날짜'; ws.getCell(top + 4, 3).value = '시간';
-    half.forEach((d, k) => {
-      const c = 4 + k * 2; ws.mergeCells(top + 2, c, top + 2, c + 1); ws.mergeCells(top + 3, c, top + 3, c + 1);
-      ws.getCell(top + 2, c).value = `${month}/${d.day}`; ws.getCell(top + 3, c).value = d.wd; ws.getCell(top + 4, c).value = '치료사'; ws.getCell(top + 4, c + 1).value = '확인';
-      const color = d.holiday || d.wd === '일' ? 'FFDC2626' : d.wd === '토' ? 'FF2563EB' : null;
-      for (const r of [top + 2, top + 3]) ws.getCell(r, c).font = { bold: true, color: color ? { argb: color } : undefined };
-      ws.getColumn(c).width = 9; ws.getColumn(c + 1).width = 5;
-      SLOTS.forEach((_, i) => { const r = top + 5 + i + (i >= 5 ? 1 : 0); ws.getCell(r, c).value = d.holiday && i === 0 ? d.holiday : d.names[i] || ''; ws.getCell(r, c).alignment = { horizontal: 'center' }; });
-    });
-    SLOTS.forEach((s, i) => { const r = top + 5 + i + (i >= 5 ? 1 : 0); ws.getCell(r, 3).value = s; });
-    ws.getCell(top + 10, 3).value = '점심시간';
-    for (let r = top + 2; r <= top + 15; r++) for (let c = 3; c < 4 + half.length * 2; c++) { const cell = ws.getCell(r, c); cell.border = box; if (r >= top + 2 && r <= top + 4) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; }
-    top += 18;
-  }
+const TEAM_FILL = { 1: 'FFFFF2CC', 2: 'FFE2EFDA', 3: 'FFDDEBF7' }, HOLIDAY_FILL = 'FFD9D9D9';
+const colOf = n => { let s = ''; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+const TABLE = [{ dateRow: 3, dow: 5, first: 7, cols: 13 }, { dateRow: 20, dow: 22, first: 24, cols: 14 }];       // 위/아래 표: 날짜 머리글 행, 요일 행, 첫 순회 행, 한 표의 날짜 칸 수
+const slotRow = (t, i) => TABLE[t].first + i + (i >= 5 ? 1 : 0);                                            // 6번째(13:30)부터 점심시간 한 줄을 건너뛴다
+
+async function build({ templateFile, year, month, weeks }) {
+  const wb = new ExcelJS.Workbook(); await wb.xlsx.readFile(templateFile);
+  const ws = wb.getWorksheet('원본'); if (!ws) throw new Error("낙상방지 파일에 '원본' 시트가 없습니다");
+  ws.getCell('A1').value = month; ws.getCell('AA2').value = year;                                         // 원본의 수식이 날짜·요일을 채운다(일요일 건너뜀)
+  const days = weeks.flatMap(w => w.days);
+  days.forEach((d, k) => {
+    const t = k < TABLE[0].cols ? 0 : 1, c = 4 + (t === 0 ? k : k - TABLE[0].cols) * 2;                      // D, F, H, …
+    for (let i = 0; i < 11; i++) { const cell = ws.getCell(slotRow(t, i), c); cell.value = d.holiday ? (i === 0 ? d.holiday : null) : (d.names[i] || null); }
+    const fill = (d.wd === '토' || d.holiday) ? { type: 'pattern', pattern: 'solid', fgColor: { argb: d.team ? TEAM_FILL[d.team] : HOLIDAY_FILL } } : null;
+    if (fill) for (const col of [c, c + 1]) for (let r = TABLE[t].dateRow; r <= slotRow(t, 10); r++) ws.getCell(r, col).fill = fill;   // 토요일·공휴일은 근무 팀 색으로 열 전체
+  });
+  for (const other of wb.worksheets.filter(x => x !== ws)) wb.removeWorksheet(other.id);
+  ws.name = `${month}월`;
   return wb;
 }
-module.exports = { SLOTS, loadRoster, loadHistory, generate, check, build, weeksOf, tally, parseMonth };
+module.exports = { SLOTS, loadRoster, loadHistory, generate, check, build, weeksOf, tally, parseMonth, TEAM_FILL };

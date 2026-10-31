@@ -4,10 +4,13 @@ Hub.register({ id: 'files', icon: '📦', desc: '모든 기능이 같은 파일 
   const draw = () => {
     const S = state.settings;
     root.innerHTML = `<div class="mute">모든 기능이 같은 파일 연결을 씁니다. PC마다 경로가 달라서 여기서 한 번만 지정하면 됩니다.</div>
-    ${Object.entries(R).map(([k, r]) => `<h2>${esc(r.label)}</h2><div class="mute">${esc(r.hint)}</div>
+    ${Object.entries(R).filter(([, r]) => !r.multi).map(([k, r]) => `<h2>${esc(r.label)}</h2><div class="mute">${esc(r.hint)}</div>
       <div class="row"><button data-find="${k}" class="pri">폴더에서 찾기</button><button data-pick="${k}">파일 직접 선택</button>${S.files[k] ? `<button data-clr="${k}">연결 해제</button>` : ''}
       <span class="${S.files[k] ? 'ok' : 'mute'}">${esc(S.files[k] || '연결 안 됨')}</span></div>
       ${(draw.cand?.[k] || []).length > 1 ? `<div class="row">후보 <select data-cand="${k}">${draw.cand[k].map(f => `<option>${esc(f)}</option>`).join('')}</select></div>` : ''}`).join('')}
+    <h2>환자 평가명단 - POT 통합 (월별 파일)</h2><div class="mute">OT·PT 통합 평가일입니다. <b>직전 평가일</b>을 여기서 읽고, 내보낼 때는 이 파일의 서식을 그대로 씁니다. 지난 달 파일들을 모두 올려 두세요(1차·2차 모두).</div>
+    <div class="row"><button id="addPot" class="pri">폴더에서 찾기</button><button id="addPotF">파일 추가</button><button id="clrPot">모두 지우기</button></div>
+    <table>${S.pot.map((f, i) => `<tr><td>${esc(f)}</td><td><button data-rmp="${i}">빼기</button></td></tr>`).join('') || '<tr><td class="warn">없음 — 없으면 직전 평가일을 알 수 없습니다</td></tr>'}</table>
     <h2>EMR 치료 내역 (액팅오류 파일)</h2><div class="mute">신환 평가항목·평가 액팅 확인에 씁니다. 기간을 정해 뽑은 파일을 여러 개 올릴 수 있습니다.</div>
     <div class="row"><button id="addEmr" class="pri">파일 추가</button><button id="clrEmr">모두 지우기</button></div>
     <table>${S.emr.map((f, i) => `<tr><td>${esc(f)}</td><td><button data-rm="${i}">빼기</button></td></tr>`).join('') || '<tr><td class="mute">없음</td></tr>'}</table>
@@ -26,6 +29,10 @@ Hub.register({ id: 'files', icon: '📦', desc: '모든 기능이 같은 파일 
     if (d.pick) { const f = await invoke('app:pickFile', d.pick); f && set(d.pick, f); }
     if (d.clr) set(d.clr, null);
     if (d.rm != null) { const l = state.settings.emr.filter((_, i) => i !== +d.rm); state.settings = await invoke('app:setEmr', l); draw(); }
+    if (t.id === 'addPot') { const r = await invoke('app:findMulti', 'pot'); if (r) { state.settings = await invoke('app:setPot', [...new Set([...state.settings.pot, ...r])]); draw(); } }
+    if (t.id === 'addPotF') { const f = await invoke('app:pickEmr'); if (f) { state.settings = await invoke('app:setPot', [...new Set([...state.settings.pot, ...f])]); draw(); } }
+    if (t.id === 'clrPot') { state.settings = await invoke('app:setPot', []); draw(); }
+    if (d.rmp != null) { state.settings = await invoke('app:setPot', state.settings.pot.filter((_, i) => i !== +d.rmp)); draw(); }
     if (t.id === 'addEmr') { const f = await invoke('app:pickEmr'); if (f) { state.settings = await invoke('app:setEmr', [...new Set([...state.settings.emr, ...f])]); draw(); } }
     if (t.id === 'clrEmr') { state.settings = await invoke('app:setEmr', []); draw(); }
     if (t.id === 'exp') { const p = await invoke('app:exportSettings'); p && say('저장했습니다: ' + p); }
