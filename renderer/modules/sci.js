@@ -23,7 +23,7 @@ Hub.register({ id: 'sci', icon: '🩺', desc: '현황판 색상·전체시간표
   root.oninput = e => e.target.dataset.memo != null && (S.res.rows[+e.target.dataset.memo].memo = e.target.value);
   root.onclick = async e => {
     if (e.target.id === 'run') { say('만드는 중…'); run(false); }
-    if (e.target.id === 'save') { const p = await invoke('sci:save', { month: S.month, rows: S.res.rows.filter(r => !r.off) }); say(p ? '저장했습니다: ' + p : '저장을 취소했습니다'); }
+    if (e.target.id === 'save') { const p = await invoke('sci:save', { month: S.month, rows: S.res.rows.filter(r => !r.off) }); Hub.saved(p); }
   };
   load();
 } });

@@ -29,13 +29,13 @@ Hub.register({ id: 'eval', icon: '🧠', desc: 'CCRT 평가일 — 치료 요일
   function pRules() {
     const c = S.info.cfg, num = (k, label, hint) => `<div class="row"><label style="width:260px">${label}</label><input type="number" min="0" data-k="${k}" value="${c.ccrt[k]}"> <span class="mute">${hint}</span></div>`;
     $p().innerHTML = `<div class="mute">바꾼 뒤 저장해야 적용됩니다. CCRT는 14일 제한과 주치의 off를 적용하지 않습니다.</div>${num('gapTarget', '루틴 목표 간격(일)', '2개월 ≈ 60')}${num('minGap', '루틴 최소(일)', '기본 50')}${num('maxGap', '루틴 최대(일)', '기본 70')}
-    <h2>휴무일 (한 줄에 하나)</h2><textarea id="holidays" rows="4" cols="28">${esc(c.holidays.join('\n'))}</textarea><div class="row" style="margin-top:14px"><button id="saveRules" class="btn primary">저장</button></div>`;
+    <div class="mute" style="margin-top:10px">휴무일은 「파일 연결」의 <b>공통 공휴일</b>을 따릅니다.</div><div class="row" style="margin-top:14px"><button id="saveRules" class="btn primary">저장</button></div>`;
   }
   root.onclick = async e => {
     const t = e.target, d = t.dataset; if (d.tab) { S.tab = d.tab; return draw(); }
     if (t.id === 'run') { say('만드는 중…'); try { const r = await invoke('eval:ccrt', ym()); if (r.error) return say(r.error, true); S.rows = r.rows; S.counts = r.counts; say('초안을 만들었습니다'); } catch (err) { say('실패: ' + err.message, true); } pPlan(); }
-    if (t.id === 'save') { const p = await invoke('eval:save', { rows: S.rows, ...ym() }); say(p ? '저장했습니다: ' + p : '저장을 취소했습니다'); }
-    if (t.id === 'saveRules') { S.info.cfg.holidays = root.querySelector('#holidays').value.split('\n').map(x => x.trim()).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x)); await invoke('eval:saveCfg', S.info.cfg); S.rows = null; say('규칙을 저장했습니다'); }
+    if (t.id === 'save') { const p = await invoke('eval:save', { rows: S.rows, ...ym() }); Hub.saved(p); }
+    if (t.id === 'saveRules') { await invoke('eval:saveCfg', S.info.cfg); S.rows = null; say('규칙을 저장했습니다'); }
   };
   root.oninput = e => { const k = e.target.dataset.k; if (k) S.info.cfg.ccrt[k] = Number(e.target.value); };
   root.onchange = async e => { const t = e.target;

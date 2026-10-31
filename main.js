@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog: electronDialog, shell } = require('electron');
 const fs = require('fs'), path = require('path');
 const { ROLES, find } = require('./shared/files');
 const { nfc } = require('./shared/xl');
@@ -13,8 +13,18 @@ const settings = {
   files: () => settings.all().files,
   emr: () => settings.all().emr,
   pot: () => settings.all().pot,
+  holidays: () => settings.all().holidays || {},            // 공통 공휴일 { 'YYYY-MM-DD': '이름' } — 모든 화면이 같이 쓴다
   mod: id => settings.all().mod[id] || {},
   setMod: (id, v) => { const s = settings.all(); s.mod[id] = v; settings.save(s); },
+};
+
+// 저장 대화상자는 마지막에 저장한 폴더에서 열린다(파일 이름만 넘기면 그 폴더 + 이름)
+const dialog = {
+  showSaveDialog: async opts => {
+    const dir = settings.mod('app').lastDir; if (dir && opts.defaultPath && !path.isAbsolute(opts.defaultPath) && fs.existsSync(dir)) opts = { ...opts, defaultPath: path.join(dir, opts.defaultPath) };
+    const r = await electronDialog.showSaveDialog(opts); if (!r.canceled && r.filePath) settings.setMod('app', { ...settings.mod('app'), lastDir: path.dirname(r.filePath) }); return r;
+  },
+  showOpenDialog: (...a) => electronDialog.showOpenDialog(...a),
 };
 
 function createWindow() {
@@ -29,6 +39,20 @@ function createWindow() {
 // ---- 공통 채널 ----
 ipcMain.handle('app:settings', () => settings.all());
 ipcMain.handle('app:roles', () => ROLES);
+ipcMain.handle('app:setHolidays', (_, map) => { const s = settings.all(); s.holidays = map || {}; settings.save(s); return s; });
+ipcMain.handle('app:reveal', (_, p) => { if (p && fs.existsSync(p)) shell.showItemInFolder(p); return true; });
+// 전체 자동 찾기: 고른 폴더(여럿 가능) 안에서 아직 연결 안 된 파일을 모두 찾아 연결한다 → { found:[역할], missing:[역할] }
+ipcMain.handle('app:findAll', async () => {
+  const r = await dialog.showOpenDialog({ title: '파일이 들어 있는 폴더(여러 개 선택 가능)', properties: ['openDirectory', 'multiSelections'] }); if (r.canceled) return null;
+  const s = settings.all(), found = [], missing = [];
+  for (const [role, def] of Object.entries(ROLES)) {
+    if (def.multi) continue; if (s.files[role] && fs.existsSync(s.files[role])) continue;
+    let hit = null; for (const d of r.filePaths) { const c = find(d, role); if (c && c.length) { hit = c[0]; break; } }
+    if (hit) { s.files[role] = hit; found.push(role); } else missing.push(role);
+  }
+  for (const role of ['pot']) { let add = []; for (const d of r.filePaths) add = add.concat(find(d, role) || []); if (add.length) { s.pot = [...new Set([...(s.pot || []), ...add])]; found.push(role); } }
+  settings.save(s); return { found, missing, settings: s };
+});
 ipcMain.handle('app:setFile', (_, role, p) => { const s = settings.all(); if (p) s.files[role] = p; else delete s.files[role]; settings.save(s); return s; });
 ipcMain.handle('app:findFiles', async (_, role) => { const r = await dialog.showOpenDialog({ properties: ['openDirectory'] }); return r.canceled ? null : find(r.filePaths[0], role); });
 ipcMain.handle('app:pickFile', async (_, role) => {

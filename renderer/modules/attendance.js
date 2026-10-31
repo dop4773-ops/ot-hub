@@ -15,10 +15,9 @@ Hub.register({ id: 'attendance', icon: '🕘', desc: '층별 직급순 출근부
     const rows = []; for (let d = 1; d <= 15; d++) { const date = `${S.year}-${pad(S.month)}-${pad(d)}`, c = cls(date), w = Hub.wd(date); rows.push(['출근', '퇴근'].map((k, j) => `<tr class="${c}">${j === 0 ? `<td rowspan="2" class="dcell ${c}">${d}<br><small>(${w})</small></td>` : ''}${list.map(() => `<td>${k}</td><td></td>`).join('')}</tr>`).join('')); }
     return `<div class="scroll sheetwrap"><table class="sheet att"><tr><th rowspan="2">날짜</th>${list.map(p => `<th colspan="2">${esc(p.name)}</th>`).join('')}</tr><tr>${list.map(() => '<th>출,퇴근 시간</th><th>서명</th>').join('')}</tr>${rows.join('')}</table></div>`;
   }
-  async function holidays() {                                                // 설정에 저장된 공휴일이 해당 연도 것이면 쓰고, 없으면 고정일 공휴일만 채운다
-    const saved = S.data.cfg.holidays;
-    S.holidays = (saved && saved.length ? saved : await invoke('attendance:fixedHolidays', S.year)).filter(d => d.startsWith(String(S.year))).join('\n');
-    if (!S.holidays) S.holidays = (await invoke('attendance:fixedHolidays', S.year)).join('\n');
+  async function holidays() {                                                // 공통 공휴일(이 연도) + 고정일 공휴일 + (예전에 이 화면에 저장한 것)
+    const set = new Set([...(await invoke('attendance:fixedHolidays', S.year)), ...Hub.holidayLines(`${S.year}-`).map(l => l.slice(0, 10)), ...((S.data.cfg.holidays || []).filter(d => d.startsWith(String(S.year))))]);
+    S.holidays = [...set].sort().join('\n');
   }
   function draw() {
     const list = S.data.floors[S.floor], dim = new Date(S.year, S.month, 0).getDate();
@@ -43,9 +42,9 @@ Hub.register({ id: 'attendance', icon: '🕘', desc: '층별 직급순 출근부
     if (e.target.id === 'save') {
       const hol = S.holidays.split('\n').map(x => x.trim()).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x));
       const list = names().map(p => p.name).concat(S.extra.split(/[,\s]+/).filter(Boolean));
-      await invoke('attendance:saveCfg', { ...S.data.cfg, holidays: hol });
+      await Hub.setHolidays(`${S.year}-`, S.holidays);
       const p = await invoke('attendance:save', { year: S.year, month: S.month, floor: S.floor, names: list, holidays: hol, perBlock: 6, workWeekend: true });
-      say(p ? '저장했습니다: ' + p : '저장을 취소했습니다');
+      Hub.saved(p);
     }
   };
   load();

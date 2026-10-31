@@ -75,8 +75,7 @@ Hub.register({ id: 'roster', icon: '📅', desc: '재원·신환 환자의 이�
     const r = S.info.rules, num = (k, label, hint) => `<div class="row"><label style="width:260px">${label}</label><input type="number" min="0" data-k="${k}" value="${r[k]}"> <span class="mute">${hint}</span></div>`;
     $p().innerHTML = `<div class="mute">바꾼 뒤 맨 아래 <b>저장</b>을 눌러야 적용됩니다.</div>${num('lastDay', '평가일은 매월 몇 일까지', '기본 14')}${num('monthGap', '재원 환자 이상적 간격(일)', '직전 평가일 + 약 한 달 (기본 28)')}${num('minGap', '직전 평가 후 최소 간격(일)', '기본 21')}${num('maxGap', 'MBI 대상 최대 간격(일)', '평가항목에 MBI가 있으면 이 안에 (기본 30)')}${num('idealGap', '신환: 입원 후 며칠째', '기본 17')}${num('cap', '하루 평가 인원 상한', '0이면 자동')}
     <div class="row"><label style="width:260px">오후만 쉬는 주치의</label><label><input type="checkbox" id="pmBlocks" ${r.pmBlocks ? 'checked' : ''}> 그날 전체를 평가 금지로 처리</label></div>
-    <h2>휴무일 (한 줄에 하나, 예: 2026-12-25)</h2><textarea id="holidays" rows="5" cols="28">${esc(r.holidays.join('\n'))}</textarea>
-    <div class="row" style="margin-top:14px"><button id="saveRules" class="btn primary">저장</button></div>`;
+    <div class="mute" style="margin-top:10px">휴무일은 「파일 연결」의 <b>공통 공휴일</b>을 따릅니다.</div><div class="row" style="margin-top:14px"><button id="saveRules" class="btn primary">저장</button></div>`;
   }
   root.onclick = async e => {
     const t = e.target, d = t.dataset, seg = t.closest('.seg');
@@ -84,12 +83,12 @@ Hub.register({ id: 'roster', icon: '📅', desc: '재원·신환 환자의 이�
     if (d.tag) { S.tags.has(d.tag) ? S.tags.delete(d.tag) : S.tags.add(d.tag); t.classList.toggle('on'); return applyFilter(); }
     if (seg && seg.id === 'scopeSeg' && d.v) { S.scope = d.v; S.res = null; return pList(); }
     if (t.id === 'run') { say('만드는 중…'); try { const r = await invoke('roster:run', { from: S.from, to: S.to, year: S.year, month: S.month, scope: S.scope }); if (r.error) return say(r.error, true); S.res = r; say(`${r.rows.length}명의 초안을 만들었습니다`); } catch (err) { say('실패: ' + err.message, true); } pList(); }
-    if (t.id === 'save') { const p = await invoke('roster:save', { month: S.month, batch: S.scope === 'new' ? `2차 명단(${+S.from.slice(8)}일~${+S.to.slice(8)}일 입원자)` : '', rows: S.res.rows }); say(p ? '저장했습니다: ' + p : '저장을 취소했습니다'); }
+    if (t.id === 'save') { const p = await invoke('roster:save', { month: S.month, batch: S.scope === 'new' ? `2차 명단(${+S.from.slice(8)}일~${+S.to.slice(8)}일 입원자)` : '', rows: S.res.rows }); Hub.saved(p); }
     if (t.id === 'ocrOff') return root.querySelector('#ocrFile').click();
     if (t.id === 'ocrAdd') { let n = 0; for (const x of S.ocr.items.filter(x => x.use && x.doctor)) { const l = (S.info.offManual[x.date] ??= []); if (!l.some(y => y.doctor === x.doctor && !!y.pm === (x.kind === 'pm'))) { l.push({ doctor: x.doctor, pm: x.kind === 'pm', from: '사진' }); n++; } } await persist(); S.res = null; S.ocr = null; say(`${n}건을 추가했습니다`); return pOff(); }
     if (t.id === 'addOff') { const dt = root.querySelector('#offDate').value; if (!dt) return say('날짜를 고르세요', true); (S.info.offManual[dt] ??= []).push({ doctor: root.querySelector('#offDoc').value, pm: root.querySelector('#offPm').checked }); await persist(); S.res = null; pOff(); }
     if (d.del) { const [dt, i] = d.del.split('|'); S.info.offManual[dt].splice(+i, 1); if (!S.info.offManual[dt].length) delete S.info.offManual[dt]; await persist(); S.res = null; pOff(); }
-    if (t.id === 'saveRules') { const r = S.info.rules; r.pmBlocks = root.querySelector('#pmBlocks').checked; r.holidays = root.querySelector('#holidays').value.split('\n').map(x => x.trim()).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x)); await persist(); S.res = null; say('규칙을 저장했습니다'); }
+    if (t.id === 'saveRules') { const r = S.info.rules; r.pmBlocks = root.querySelector('#pmBlocks').checked; await persist(); S.res = null; say('규칙을 저장했습니다'); }
   };
   root.oninput = e => { const d = e.target.dataset; if (e.target.id === 'fq') { S.q = e.target.value; return applyFilter(); } if (d.k) S.info.rules[d.k] = Number(e.target.value); if (d.f) { const [k, i] = d.f.split('|'); S.res.rows[+i][k] = e.target.value; } };
   root.onchange = e => { const t = e.target;

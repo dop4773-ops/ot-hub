@@ -62,3 +62,10 @@ renderer/modules/<id>.js   화면 — Hub.register({id,title,render(root)})   �
 - 설정형 화면(파일 연결): rehab-hub 설정 화면의 `.st-sec` `.st-row` `.st-line` `.st-btns` `.st-fold` 구조를 그대로 썼다.
 - 알림(`#msg`)은 rehab-hub `.toast`처럼 위쪽 가운데.
 - 이 앱에만 있는 것(합칠 때 옮길 것): `.actionbar`(위 고정 줄) `.exportbar`(아래 고정 내보내기 줄) `.pickpop`(이름 검색 창) `.dropz`(사진 끌어놓기) `table.sheet`(시트 모양 미리보기) `.plan`(배치도).
+
+## 단축키·화면 규칙 (재활프로그램과 같은 규칙)
+- Ctrl+1~7 화면 이동 · Ctrl+\ 사이드바 · Ctrl+Enter 실행(다시 배정·만들기, 화면의 `#run` 또는 `data-key="run"`) · Ctrl+E 저장(`#save2`/`#save`/`data-key="save"`) · Ctrl+R 이 화면 새로 읽기 · Alt 길게 = 단축키 카드 · Esc 알림·검색 창 닫기. 눌린 글쇠 자리(`e.code`)로 판별해 한글 입력 상태에서도 된다.
+  합칠 때: `shell.js`의 KEYS()를 재활프로그램 GLOBAL_KEYS/VIEW_KEYS 표에 옮기면 된다(화면별 버튼 id만 맞추면 됨).
+- 화면은 한 번 만들어 두고 보였다/숨겼다 한다(재활프로그램 `.view` 방식). 파일 연결이 바뀌면 다른 화면은 지워 다음에 새로 읽는다(`Hub.invalidate`).
+- 오류는 공통(`Hub.invoke`)에서 알림으로 보여 준다. 저장 끝 안내는 `Hub.saved(경로)` = 파일 이름 + 「폴더 열기」(재활프로그램 저장 안내와 같은 자리).
+- 공휴일은 한 곳(`settings.holidays`)에 모은다. 출근부·낙상 화면에서 고친 날짜도 여기에 합쳐진다.

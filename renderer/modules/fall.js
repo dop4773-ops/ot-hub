@@ -2,7 +2,7 @@
 // 시트 모양 미리보기에서 칸을 눌러 고치고 → 낙상방지 파일 '원본' 서식 그대로 새 엑셀로 저장
 Hub.register({ id: 'fall', icon: '🚶', desc: '평일은 주 단위, 토요일·공휴일은 그날 근무 팀 — 캘린더 연차·3층 근무자 반영', title: '낙상 순회', render(root) {
   const { esc, invoke, say, opts, pad } = Hub, nm = Hub.nextMonth();
-  const S = { edited: new Set(), year: nm.year, month: nm.month, floor: '10층', data: null, res: null, holText: '', issues: [], ov: {}, calMsg: '' };
+  const S = { edited: new Set(), year: nm.year, month: nm.month, floor: Hub.pref.get('fall.floor', '10층'), data: null, res: null, holText: '', issues: [], ov: {}, calMsg: '' };
   const TEAM = { 1: ['#fff2cc', '1팀'], 2: ['#e2efda', '2팀'], 3: ['#ddebf7', '3팀'] };
   const names = () => [...new Set([...S.data.roster.weekday10, ...S.data.roster.weekday3, ...Object.values(S.data.roster.sat).flat()])].sort((a, b) => a.localeCompare(b, 'ko'));
   async function load() {
@@ -10,7 +10,7 @@ Hub.register({ id: 'fall', icon: '🚶', desc: '평일은 주 단위, 토요일�
     S.data = await invoke('fall:load'); if (S.data.error) { root.innerHTML = `<div class="warn">${esc(S.data.error)}</div>`; return; }
     setHol(); draw(); generate(true);
   }
-  const setHol = () => { S.holText = Object.entries(S.data.holidays).filter(([d]) => d.startsWith(`${S.year}-${pad(S.month)}`)).map(([d, n]) => `${d} ${n}`).join('\n'); };
+  const setHol = () => { const pre = `${S.year}-${pad(S.month)}`, m = new Map(); for (const l of Hub.holidayLines(pre)) m.set(l.slice(0, 10), l); for (const [d, n] of Object.entries(S.data.holidays || {})) if (d.startsWith(pre) && !m.has(d)) m.set(d, `${d} ${n}`); S.holText = [...m.values()].sort().join('\n'); };      // 공통 공휴일 + (예전에 이 화면에 적어 둔 것)
   const holidays = () => Object.fromEntries(S.holText.split('\n').map(l => l.trim().match(/^(\d{4}-\d{2}-\d{2})\s*(.*)$/)).filter(Boolean).map(m => [m[1], m[2] || '공휴일']));
   const bad = (date, i) => S.issues.some(x => x.date === date && x.slot === i);
   const calOpen = () => !S.data.calendarUrl && !S.data.calendarFile;
@@ -62,18 +62,18 @@ Hub.register({ id: 'fall', icon: '🚶', desc: '평일은 주 단위, 토요일�
     setTimeout(() => document.addEventListener('mousedown', outside, true));
   }
   async function recheck() { S.issues = await invoke('fall:check', { weeks: S.res.weeks }); }
-  async function generate(quiet) { if (!quiet) say('배정하는 중…'); S.res = await invoke('fall:generate', { year: S.year, month: S.month, floor: S.floor, holidays: holidays(), seed: Date.now() % 1e6, overrides: S.ov }); S.issues = S.res.issues; S.edited.clear(); if (!quiet) say('배정했습니다'); draw(); }
+  async function generate(quiet) { if (!quiet) say('배정하는 중…'); await Hub.setHolidays(`${S.year}-${pad(S.month)}`, S.holText); S.res = await invoke('fall:generate', { year: S.year, month: S.month, floor: S.floor, holidays: holidays(), seed: Date.now() % 1e6, overrides: S.ov }); S.issues = S.res.issues; S.edited.clear(); if (!quiet) say('배정했습니다'); draw(); }
   root.oninput = e => { if (e.target.id === 'hol') S.holText = e.target.value; };
   root.onchange = async e => {
     const t = e.target;
-    if (t.id === 'yy') { S.year = +t.value; S.res = null; S.ov = {}; setHol(); draw(); generate(true); } if (t.id === 'mm') { S.month = +t.value; S.res = null; S.ov = {}; setHol(); draw(); generate(true); } if (t.id === 'floor') { S.floor = t.value; S.res = null; draw(); generate(true); }
+    if (t.id === 'yy') { S.year = +t.value; S.res = null; S.ov = {}; setHol(); draw(); generate(true); } if (t.id === 'mm') { S.month = +t.value; S.res = null; S.ov = {}; setHol(); draw(); generate(true); } if (t.id === 'floor') { S.floor = t.value; Hub.pref.set('fall.floor', S.floor); S.res = null; draw(); generate(true); }
   };
   root.onclick = async e => {
     const t = e.target, c = t.closest('.cell');
     if (c) return openPick(c);
     const sp = t.closest('[data-sp]'); if (sp) { const [date, name] = sp.dataset.sp.split('|'), p = S.res.info[date].people.find(x => x.name === name); ((S.ov[date] ??= {}).floor3 ??= {})[name] = !p.floor3; p.floor3 = !p.floor3; draw(); say('다시 배정하면 반영됩니다'); return; }
     if (t.id === 'run') generate();
-    if (t.id === 'save') { const p = await invoke('fall:save', { year: S.year, month: S.month, weeks: S.res.weeks, floor: S.floor }); say(p ? '저장했습니다: ' + p : '저장을 취소했습니다'); }
+    if (t.id === 'save') { const p = await invoke('fall:save', { year: S.year, month: S.month, weeks: S.res.weeks, floor: S.floor }); Hub.saved(p); }
     if (t.id === 'calSave') { await invoke('fall:saveCalendar', { url: root.querySelector('#calUrl').value }); S.data.calendarUrl = root.querySelector('#calUrl').value.trim(); const r = await invoke('fall:testCalendar', { year: S.year, month: S.month }); S.calMsg = r.ok ? `${S.month}월 연차 ${r.leaves}건 · 팀 표시 ${r.teams}일을 읽었습니다${r.unknown.length ? ` · 못 읽은 일정 예: ${r.unknown.slice(0, 3).join(', ')}` : ''}` : r.message; draw(); }
     if (t.id === 'calFile') { const f = await invoke('fall:pickCalendarFile'); if (f) { S.data.calendarFile = f; S.calMsg = '파일을 연결했습니다'; draw(); } }
   };

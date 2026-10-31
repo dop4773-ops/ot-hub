@@ -2,7 +2,10 @@
 Hub.register({ id: 'cleaning', icon: '🧹', desc: '팀 시트 직책·과거 이력으로 분기 청소를 공평하게 배정', title: '청소분담표', sep: true, render(root) {
   const { esc, invoke, say, opts, tabsHtml } = Hub;
   const CATS = ['밀대', '쓸기', '닦기', '도구장', '트롤리', '소모품라벨'];
-  const S = { inc: { week: true, big: true, mapWeek: false, mapBig: false }, floor: '10층', tab: 'plan', data: null, rules: null, use: {}, people: {}, base: '', last: '', plan: null, big: null, q: '', d: '' };
+  // 다음 분기(1·4·7·10월 시작)의 시트 이름과 첫 월요일 날짜를 미리 채운다
+  const nextQuarter = () => { const n = new Date(), m = n.getMonth() + 1, qm = [1, 4, 7, 10].find(x => x > m) || 13, y = n.getFullYear() + (qm === 13 ? 1 : 0), mm = qm === 13 ? 1 : qm, d = new Date(y, mm - 1, 1); while (d.getDay() !== 1) d.setDate(d.getDate() + 1);
+    return { q: `${y}.${String(mm).padStart(2, '0')}~`, d: `${y}-${String(mm).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}~` }; };
+  const S = { inc: Hub.pref.get('cleaning.inc', { week: true, big: true, mapWeek: false, mapBig: false }), floor: Hub.pref.get('cleaning.floor', '10층'), tab: 'plan', data: null, rules: null, use: {}, people: {}, base: '', last: '', plan: null, big: null, q: nextQuarter().q, d: nextQuarter().d };
   const active = () => Object.keys(S.people).filter(p => S.people[p]);
   const useNames = () => S.data.sheets.filter(s => S.use[s.name]).map(s => s.name);
   const FR = () => S.rules.floors[S.floor];                       // 지금 층의 칸·고정·대청소 설정
@@ -31,7 +34,7 @@ Hub.register({ id: 'cleaning', icon: '🧹', desc: '팀 시트 직책·과거 �
   }
   root.onclick = async e => {
     const t = e.target, d = t.dataset;
-    if (d.fl) { S.floor = d.fl; S.plan = S.big = null; S.fp = undefined; initPeople(); S.last = S.base; return draw(); }
+    if (d.fl) { S.floor = d.fl; Hub.pref.set('cleaning.floor', S.floor); S.plan = S.big = null; S.fp = undefined; initPeople(); S.last = S.base; return draw(); }
     if (d.tab) { S.tab = d.tab; return draw(); }
     handlers.forEach(h => h(t, d));
   };
@@ -105,7 +108,7 @@ Hub.register({ id: 'cleaning', icon: '🧹', desc: '팀 시트 직책·과거 �
     if (t.id === 'addP') { const v = root.querySelector('#newP').value.trim(); if (v) { S.people[v] = true; S.plan = S.big = null; pPlan(); } }
     if (t.id === 'run') { const l = root.querySelector('#lastSel'); if (l) S.last = l.value; S.plan = null; await runPlan(false); pPlan(); }
     if (t.id === 'save2') save2();
-    if (d.inc) { S.inc[d.inc] = t.checked; if (t.checked && /big|Big/.test(d.inc) && S.plan && !S.big) { await ensureBig(); if (S.tab === 'big' || S.tab === 'map') draw(); } }
+    if (d.inc) { S.inc[d.inc] = t.checked; Hub.pref.set('cleaning.inc', S.inc); if (t.checked && /big|Big/.test(d.inc) && S.plan && !S.big) { await ensureBig(); if (S.tab === 'big' || S.tab === 'map') draw(); } }
   });
   root.onchange = e => {
     const d = e.target.dataset;
@@ -135,7 +138,7 @@ Hub.register({ id: 'cleaning', icon: '🧹', desc: '팀 시트 직책·과거 �
     if (!S.plan && !(await runPlan(true))) return;
     if ((inc.big || inc.mapBig) && !(await ensureBig())) return;
     const p = await invoke('cleaning:save', { floor: S.floor, sheetName: S.q.trim(), date: S.d, cells: S.plan.cells, big: S.big, include: { week: !!inc.week, big: !!inc.big, mapWeek: !!inc.mapWeek, mapBig: !!inc.mapBig } });
-    say(p ? '저장했습니다: ' + p : '저장을 취소했습니다');
+    Hub.saved(p);
   }
 
   /* ④ 대청소 */

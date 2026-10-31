@@ -15,7 +15,7 @@ const DEF = { idealGap: 17, lastDay: 14, cap: 0, holidays: [], pmBlocks: true, m
 module.exports = {
   id: 'roster', title: '평가일 관리',
   register({ ipc, settings, dialog }) {
-    const cfg = () => { const m = settings.mod('roster'); return { rules: { ...DEF, ...m.rules }, offManual: m.offManual || {} }; };
+    const cfg = () => { const m = settings.mod('roster'), r = { ...DEF, ...m.rules }; r.holidays = [...new Set([...(r.holidays || []), ...Object.keys(settings.holidays())])]; return { rules: r, offManual: m.offManual || {} }; };      // 휴무일 = 공통 공휴일 + (예전에 이 화면에 적은 것)
     ipc.handle('roster:load', async () => {
       const f = settings.files(), pots = settings.pot(), c = cfg();
       const pot = pots.length ? await loadPot(pots) : { files: [], byName: {} };
@@ -27,7 +27,7 @@ module.exports = {
       try { fs.writeFileSync(f, Buffer.from(png, 'base64')); const o = await require('./ocr').readCalendar({ file: f, year, month }); return { ...o, image: `data:image/png;base64,${png}` }; }
       catch (e) { return { error: e.message }; } finally { fs.rmSync(f, { force: true }); }
     });
-    ipc.handle('roster:saveCfg', (_, c) => { settings.setMod('roster', { ...settings.mod('roster'), ...c }); return true; });
+    ipc.handle('roster:saveCfg', (_, c) => { settings.setMod('roster', { ...settings.mod('roster'), ...c, ...(c.rules ? { rules: { ...c.rules, holidays: [] } } : {}) }); return true; });
     ipc.handle('roster:run', async (_, { from, to, year, month, scope }) => {
       const f = settings.files(); if (!f.status) return { error: '작업치료현황 파일을 연결하세요' };
       const c = cfg(), status = await loadStatus(f.status);

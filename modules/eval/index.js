@@ -11,13 +11,13 @@ const { loadDischarges } = require('../../shared/messenger');
 module.exports = {
   id: 'eval', title: 'CCRT 평가일',
   register({ ipc, settings, dialog }) {
-    const cfg = () => { const m = settings.mod('eval'); return { ccrt: { ...CCRT, ...m.ccrt }, holidays: (m.rules && m.rules.holidays) || [] }; };
+    const cfg = () => { const m = settings.mod('eval'); return { ccrt: { ...CCRT, ...m.ccrt }, holidays: [...new Set([...((m.rules && m.rules.holidays) || []), ...Object.keys(settings.holidays())])] }; };
     ipc.handle('eval:load', async () => {
       const f = settings.files(); if (!f.eval) return { error: '재활평가관리 파일을 연결하세요' };
       const cy = await loadCycles(f.eval); const dates = cy.ccrt.flatMap(p => Object.values(p.dates)).sort();
       return { cfg: cfg(), ccrtListed: cy.ccrt.length, latest: dates[dates.length - 1] || '' };
     });
-    ipc.handle('eval:saveCfg', (_, c) => { settings.setMod('eval', { ...settings.mod('eval'), ccrt: c.ccrt, rules: { holidays: c.holidays } }); return true; });
+    ipc.handle('eval:saveCfg', (_, c) => { settings.setMod('eval', { ...settings.mod('eval'), ccrt: c.ccrt, rules: { holidays: [] } }); return true; });      // 휴무일은 공통 공휴일에서 읽는다(여기에 따로 저장하지 않음)
     const opts = () => { const c = cfg(); return { ...c.ccrt, holidays: c.holidays }; };
     ipc.handle('eval:ccrt', async (_, { year, month }) => {
       const f = settings.files(); if (!f.status || !f.eval) return { error: '작업치료현황과 재활평가관리 파일을 연결하세요' };

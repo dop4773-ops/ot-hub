@@ -87,7 +87,7 @@ Hub.register({ id: 'inventory', icon: '🧰', desc: '청구서를 읽어 비품�
     if (seg && seg.id === 'viewSeg' && d.v) { S.view = d.v; return pImp(); }
     if (seg && seg.classList.contains('act') && d.a) { const id = seg.dataset.act, cur = S.act[id] || {}; S.act[id] = { ...cur, action: cur.action === d.a ? '' : d.a }; persist(); const y = scrollY; pImp(); draw.tabLabel?.(); root.querySelectorAll('.tabs button')[1].textContent = `② 청구서 가져오기·분류${pending() ? ` · 미분류 ${pending()}` : ''}`; return; }
     const chip = t.closest('[data-sheet]'); if (chip) { S.pick = chip.dataset.sheet; S.view = '전체'; return pImp(); }
-    if (t.id === 'save') { const p = await invoke('inventory:save', { items: S.res.items, log: S.res.log, sheets: [S.pick] }); if (p) { say('저장했습니다: ' + p); S.sheets.forEach(s => { if (s.name === S.pick) s.done = new Date().toISOString().slice(0, 10); }); S.act = {}; S.manual = []; } else say('저장을 취소했습니다'); }
+    if (t.id === 'save') { const p = await invoke('inventory:save', { items: S.res.items, log: S.res.log, sheets: [S.pick] }); if (p) { Hub.saved(p); S.sheets.forEach(s => { if (s.name === S.pick) s.done = new Date().toISOString().slice(0, 10); }); S.act = {}; S.manual = []; } else say('저장을 취소했습니다'); }
   };
   root.oninput = e => { if (e.target.id === 'q') { S.q = e.target.value; const p = e.target.selectionStart; pList(); const el = root.querySelector('#q'); el.focus(); el.setSelectionRange(p, p); } };
   root.onchange = e => {
