@@ -3,7 +3,8 @@
 //  · 주치의 off는 일반 평가에만 적용 — CCRT 평가는 주치의가 쉬는 날에도 잡을 수 있다.
 const { loadCycles } = require('./schedule');
 const { loadCcrtSchedule, planCcrt, issuesOfCcrt, DEFAULT: CCRT } = require('./ccrt');
-const { buildCycle } = require('./export');
+const { buildCcrtTemplate } = require('./export');
+const { loadTimetableCards } = require('../../shared/timetable');
 const { loadStatus } = require('../../shared/status');
 const { loadDischarges } = require('../../shared/messenger');
 
@@ -21,22 +22,26 @@ module.exports = {
     ipc.handle('eval:ccrt', async (_, { year, month }) => {
       const f = settings.files(); if (!f.status || !f.eval) return { error: '작업치료현황과 재활평가관리 파일을 연결하세요' };
       const [sched, status, cy, disc] = [await loadCcrtSchedule(f.status), await loadStatus(f.status), await loadCycles(f.eval), f.messenger ? await loadDischarges(f.messenger).catch(() => ({})) : {}];
+      const tts = [f.timetable10, f.timetable3].filter(Boolean), cards = {}; for (const t of tts) Object.assign(cards, await loadTimetableCards(t).catch(() => ({})));      // 2차 확인: 환자 전체시간표의 '인지치료' 요일
+      const WK = ['', '월', '화', '수', '목', '금'], dayStr = a => [...a].sort().map(n => WK[n]).join('') || '없음';
       const st = Object.fromEntries(status.map(s => [s.name, s])), prevBy = Object.fromEntries(cy.ccrt.map(p => [p.name, p]));
       const names = new Set([...Object.keys(sched.ccrt), ...Object.keys(sched.better), ...Object.keys(sched.comcog)]);
       const patients = [...names].map((name, i) => {
         const s = st[name], old = prevBy[name];
         const excluded = sched.better[name] && !sched.ccrt[name] ? 'BETTER — CCRT 평가 안 함' : sched.comcog[name] && !sched.ccrt[name] ? 'COMCOG — CCRT 평가 안 함' : !s || !['입원', '재입원'].includes(s.state) ? '입원 중 아님(현황)' : null;
         const d = (disc[name] || []).map(x => x.date).filter(x => x >= (s?.admitted || '')).sort().pop() || null;
-        return { name, doctor: s?.doctor || old?.doctor || '', room: s?.room || old?.room || '', row: i, weekdays: [...(sched.ccrt[name] || [])].sort(), dates: old?.dates || {}, recoveryEnd: s?.recoveryEnd || null, discharge: d, excluded };
+        const wdays = [...(sched.ccrt[name] || [])].sort(), tt = cards[name];
+        let ttMsg = '', ttOk; if (tts.length && !excluded) { if (!tt) ttMsg = '전체시간표에서 환자를 못 찾음'; else if (!tt.cog.length) ttMsg = '전체시간표에 인지치료 없음'; else if (wdays.join() !== [...tt.cog].sort().join()) ttMsg = `요일 불일치: 현황 ${dayStr(wdays)} ≠ 전체시간표 ${dayStr(tt.cog)}`; else ttOk = true; }
+        return { ttMsg, ttOk, ttDays: tt ? tt.cog : [], name, doctor: s?.doctor || old?.doctor || '', room: s?.room || old?.room || '', row: i, weekdays: wdays.length ? wdays : (tt ? [...tt.cog].sort() : []), dates: old?.dates || {}, recoveryEnd: s?.recoveryEnd || null, discharge: d, excluded };
       });
       const o = opts(), r = planCcrt({ patients, year, month, off: {}, ...o });          // off = {} : 주치의 off와 무관
       const iss = issuesOfCcrt({ rows: r.rows, year, month, off: {}, ...o }); r.rows.forEach((x, i) => x.issues = iss[i]);
-      return { rows: r.rows, counts: { ccrt: Object.keys(sched.ccrt).length, better: Object.keys(sched.better).length, comcog: Object.keys(sched.comcog).length, messenger: !!f.messenger } };
+      return { rows: r.rows, counts: { ccrt: Object.keys(sched.ccrt).length, better: Object.keys(sched.better).length, comcog: Object.keys(sched.comcog).length, messenger: !!f.messenger, timetable: tts.length > 0, ttBad: [...new Set(r.rows.filter(x => x.ttMsg).map(x => x.name))].length } };
     });
     ipc.handle('eval:ccrtCheck', (_, { rows, year, month }) => issuesOfCcrt({ rows, year, month, off: {}, ...opts() }));
     ipc.handle('eval:save', async (_, { rows, year, month }) => {
       const r = await dialog.showSaveDialog({ defaultPath: `CCRT평가일정_${year}-${String(month).padStart(2, '0')}.xlsx`, filters: [{ name: '엑셀', extensions: ['xlsx'] }] });
-      if (r.canceled) return null; await buildCycle({ rows, year, month, kind: 'ccrt' }).xlsx.writeFile(r.filePath); return r.filePath;
+      if (r.canceled) return null; const out = await buildCcrtTemplate({ templateFile: settings.files().eval, rows, year, month }); require('fs').writeFileSync(r.filePath, out.buffer); return r.filePath;
     });
   },
 };

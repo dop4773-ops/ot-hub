@@ -10,10 +10,12 @@ const r = planCcrt({ patients: [
   P('아직', { dates: { 10: '2026-10-25' } }),                       // 다음 루틴은 12월 → 대상 아님
   P('오프', { weekdays: [2], doctor: '9', dates: { 9: '2026-09-15' } }),
 ], year: 2026, month: 11, off: { '2026-11-17': [{ doctor: '9', pm: false }] } });
-const by = Object.fromEntries(r.rows.map(x => [x.name, x]));
-assert.ok(dow(by['루틴'].date) !== 0 && [1, 3, 5].includes(dow(by['루틴'].date)));
-assert.ok(by['퇴원'].date < '2026-11-12' && [1, 3, 5].includes(dow(by['퇴원'].date)) && /퇴원/.test(by['퇴원'].note));
-assert.ok(by['회복기'].date < '2026-11-10' && /회복기/.test(by['회복기'].note));
-assert.strictEqual(by['베터'].status, '제외'); assert.strictEqual(by['아직'].status, '대상 아님');
-assert.notStrictEqual(by['오프'].date, '2026-11-17');            // 화요일(주치의 9 off)은 피한다
-console.log('CCRT 규칙 시험 OK', r.rows.map(x => `${x.name}:${x.date || x.status}`).join(' '));
+const by = {}; r.rows.forEach(x => (by[x.name] ??= []).push(x));
+const one = n => by[n][0], kind = (n, k) => by[n].find(x => x.kind === k);
+assert.ok(dow(one('루틴').date) !== 0 && [1, 3, 5].includes(dow(one('루틴').date)));
+assert.strictEqual(by['퇴원'].length, 1); assert.ok(kind('퇴원', '퇴원 전').date < '2026-11-12' && [1, 3, 5].includes(dow(kind('퇴원', '퇴원 전').date)));
+assert.ok(kind('회복기', '회복기 종료 전').date < '2026-11-10' && /COSAS/.test(kind('회복기', '회복기 종료 전').note));
+assert.ok(kind('회복기', '루틴') && kind('회복기', '루틴').date >= '2026-11-24', '루틴은 사건과 별개로 하나 더');          // 직전 10/5 + 50일 이후
+assert.strictEqual(one('베터').status, '제외'); assert.strictEqual(one('아직').status, '대상 아님');
+assert.notStrictEqual(one('오프').date, '2026-11-17');            // 화요일(주치의 9 off)은 피한다
+console.log('CCRT 규칙 시험 OK', r.rows.map(x => `${x.name}/${x.kind || '-'}:${x.date || x.status}`).join(' '));

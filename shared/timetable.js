@@ -13,15 +13,18 @@ async function parseCards(file) {
   const reader = new ExcelJS.stream.xlsx.WorkbookReader(file, { worksheets: 'emit', sharedStrings: 'cache', styles: 'ignore', hyperlinks: 'ignore', entries: 'ignore' });
   for await (const ws of reader) {
     if (!/^입원$|병동$/.test(ws.name)) { for await (const _ of ws) { /* 건너뜀 */ } continue; }
-    let pending = null;
+    let pending = null, card = null, start = 0;
     for await (const row of ws) {
       if (pending && row.number === pending.row + 1) {
         const name = cellText(row.getCell(1)).trim();
-        if (name) out[name] = { recovery: pending.recovery, room: cellText(row.getCell(7)).trim(), sheet: ws.name };
+        if (name) { out[name] = { recovery: pending.recovery, room: cellText(row.getCell(7)).trim(), sheet: ws.name, cog: [] }; card = out[name]; start = pending.row; }
         pending = null;
       }
+      if (card && row.number >= start + 8 && row.number <= start + 23) {          // 카드 안 요일표: 월(E)·화(H)·수(K)·목(N)·금(Q) 열에 '인지치료'가 있는 요일 = 전산화인지(CCRT) 치료일
+        [5, 8, 11, 14, 17].forEach((c, i) => { const x = cellText(row.getCell(c)).trim(); if (/인지치료/.test(x) && !/^3F/.test(x) && !card.cog.includes(i + 1)) card.cog.push(i + 1); });
+      }
       const h = cellText(row.getCell(13)).replace(/\s+/g, ' ').trim();
-      if (HEAD.test(h)) pending = { row: row.number, recovery: /회복기/.test(h) };
+      if (HEAD.test(h)) { pending = { row: row.number, recovery: /회복기/.test(h) }; card = null; }
     }
   }
   return out;

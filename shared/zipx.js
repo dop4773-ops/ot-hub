@@ -38,9 +38,9 @@ async function keepOnlySheet(zip, name, newName) {
 
 // 칸 하나의 값만 바꾼다(서식 s 유지). 칸이 없으면 줄 안에 열 순서대로 끼워 넣는다.
 const colNum = c => [...c].reduce((a, ch) => a * 26 + ch.charCodeAt(0) - 64, 0);
-function setCell(xml, ref, value) {
+function setCell(xml, ref, value, newStyle) {
   const [, col, row] = ref.match(/^([A-Z]+)(\d+)$/), re = new RegExp(`<c r="${ref}"([^>]*?)(?:/>|>[\\s\\S]*?</c>)`), m = xml.match(re);
-  const s = m ? attr('<c ' + m[1], 's') : null, sa = s ? ` s="${s}"` : '';
+  const s = m ? attr('<c ' + m[1], 's') : newStyle, sa = s ? ` s="${s}"` : '';
   const cell = value === '' || value == null ? `<c r="${ref}"${sa}/>` : typeof value === 'number' ? `<c r="${ref}"${sa}><v>${value}</v></c>` : `<c r="${ref}"${sa} t="inlineStr"><is><t xml:space="preserve">${xe(value)}</t></is></c>`;
   if (m) return xml.replace(re, cell);
   const rre = new RegExp(`(<row r="${row}"[^>]*?)(/>|>([\\s\\S]*?)</row>)`), rm = xml.match(rre);
@@ -68,4 +68,26 @@ function fills(stylesXml) {
     finish() { return stylesXml.replace(fillsXml[0], `<fills count="${nFills + addedFills.length}">${fillsXml[2]}${addedFills.join('')}</fills>`).replace(xfsXml[0], `<cellXfs count="${xfs.length + addedXfs.length}">${xfsXml[2]}${addedXfs.join('')}</cellXfs>`); },
   };
 }
-module.exports = { loadZip, save, keepOnlySheet, setCell, setStyle, styleOf, fills, sheetTable };
+// 공유 문자열 표(글자 칸이 가리키는 실제 글자)
+async function sharedStrings(zip) {
+  const f = zip.file('xl/sharedStrings.xml'); if (!f) return [];
+  return [...(await f.async('string')).matchAll(/<si>([\s\S]*?)<\/si>/g)].map(m => [...m[1].matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map(x => x[1]).join('').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&'));
+}
+// 칸의 글자(공유 문자열·직접 문자열·숫자 모두)
+function cellValue(xml, ref, ss) {
+  const m = xml.match(new RegExp(`<c r="${ref}"([^>]*?)(?:/>|>([\\s\\S]*?)</c>)`)); if (!m || !m[2]) return '';
+  const t = attr('<c ' + m[1], 't'), v = (m[2].match(/<v>([\s\S]*?)<\/v>/) || [])[1];
+  if (t === 's') return ss[Number(v)] || ''; if (t === 'inlineStr') return [...m[2].matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map(x => x[1]).join(''); return v == null ? '' : v;
+}
+// 새 시트 하나를 덧붙인다(단순 표: 값만, 첫 줄은 굵게 하지 않음)
+async function addSheet(zip, name, rows, widths = []) {
+  let wb = await zip.file('xl/workbook.xml').async('string'), rels = await zip.file('xl/_rels/workbook.xml.rels').async('string'), ct = await zip.file('[Content_Types].xml').async('string');
+  const n = 1 + Math.max(0, ...Object.keys(zip.files).map(f => Number((f.match(/^xl\/worksheets\/sheet(\d+)\.xml$/) || [])[1] || 0))), rid = 'rIdX' + n, sid = 1 + Math.max(0, ...[...wb.matchAll(/sheetId="(\d+)"/g)].map(m => +m[1]));
+  const col = i => String.fromCharCode(65 + i), body = rows.map((r, i) => `<row r="${i + 1}">${r.map((v, j) => v == null || v === '' ? '' : typeof v === 'number' ? `<c r="${col(j)}${i + 1}"><v>${v}</v></c>` : `<c r="${col(j)}${i + 1}" t="inlineStr"><is><t xml:space="preserve">${xe(v)}</t></is></c>`).join('')}</row>`).join('');
+  zip.file(`xl/worksheets/sheet${n}.xml`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${body}</sheetData></worksheet>`.replace('<cols></cols>', ''));
+  wb = wb.replace('</sheets>', `<sheet name="${xe(name)}" sheetId="${sid}" r:id="${rid}"/></sheets>`);
+  rels = rels.replace('</Relationships>', `<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${n}.xml"/></Relationships>`);
+  ct = ct.replace('</Types>', `<Override PartName="/xl/worksheets/sheet${n}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`);
+  zip.file('xl/workbook.xml', wb); zip.file('xl/_rels/workbook.xml.rels', rels); zip.file('[Content_Types].xml', ct);
+}
+module.exports = { sharedStrings, cellValue, addSheet, loadZip, save, keepOnlySheet, setCell, setStyle, styleOf, fills, sheetTable };

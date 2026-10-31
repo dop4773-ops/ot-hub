@@ -145,6 +145,7 @@ const colOf = n => { let s = ''; while (n > 0) { const m = (n - 1) % 26; s = Str
 const TABLE = [{ dateRow: 3, dow: 5, first: 7, cols: 13 }, { dateRow: 20, dow: 22, first: 24, cols: 14 }];       // 위/아래 표: 날짜 머리글 행, 요일 행, 첫 순회 행, 한 표의 날짜 칸 수
 const slotRow = (t, i) => TABLE[t].first + i + (i >= 5 ? 1 : 0);                                            // 6번째(13:30)부터 점심시간 한 줄을 건너뛴다
 
+// (점심시간 줄은 원본의 짙은 회색을 그대로 두고 토요일 팀 색을 칠하지 않는다)
 // 낙상방지 파일의 '원본' 시트(서식·너비·글꼴·로고·가로 인쇄)를 엑셀 파일 안쪽(XML)에서 직접 고쳐 이름만 채운다 — ExcelJS로 다시 쓰면 "내용에 문제가 있습니다" 복구 창이 뜨던 문제를 피한다.
 async function build({ templateFile, year, month, weeks }) {
   const Z = require('../../shared/zipx'), zip = await Z.loadZip(templateFile);
@@ -156,7 +157,7 @@ async function build({ templateFile, year, month, weeks }) {
     for (let i = 0; i < 11; i++) xml = Z.setCell(xml, `${colOf(c)}${slotRow(t, i)}`, d.holiday ? (i === 0 ? d.holiday : null) : (d.names[i] || null));
     if (d.wd === '토' || d.holiday) {                                                                         // 토요일·공휴일은 근무 팀 색으로 열 전체
       const argb = d.team ? TEAM_FILL[d.team] : HOLIDAY_FILL;
-      for (const col of [c, c + 1]) for (let r = TABLE[t].dateRow; r <= slotRow(t, 10); r++) { const ref = `${colOf(col)}${r}`, s = Z.styleOf(xml, ref); if (s != null) xml = Z.setStyle(xml, ref, st.get(s, argb)); }
+      for (const col of [c, c + 1]) for (let r = TABLE[t].dateRow; r <= slotRow(t, 10); r++) { if (r === slotRow(t, 5) - 1) continue; const ref = `${colOf(col)}${r}`, s = Z.styleOf(xml, ref); if (s != null) xml = Z.setStyle(xml, ref, st.get(s, argb)); }
     }
   });
   zip.file(path, xml); zip.file('xl/styles.xml', st.finish());

@@ -42,7 +42,8 @@ const Hub = (() => {
     state.cur = id; await reload();
     document.querySelectorAll('#nav .nav-item').forEach(b => b.classList.toggle('active', b.dataset.id === id));
     const m = mods.find(x => x.id === id); document.getElementById('vTitle').textContent = m.title; document.getElementById('vSub').textContent = m.desc || ''; status();
-    const root = document.getElementById('view'); root.innerHTML = ''; root.onclick = root.onchange = root.oninput = null; m.render(root);
+    const view = document.getElementById('view'), root = document.createElement('div'); view.replaceChildren(root);     // 화면마다 새 칸을 만든다 — 앞 화면의 늦게 끝난 작업이 지금 화면 위에 덮어 그리지 못하게
+    m.render(root);
   }
   async function start() {
     state.roles = await invoke('app:roles'); await reload();
