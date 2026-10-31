@@ -2,7 +2,7 @@
 const { loadHistory } = require('./history');
 const { assign, countsOf, zoneCounts } = require('./assign');
 const { bigClean } = require('./bigclean');
-const { loadFloorPlan } = require('./floorplan');
+const { loadFloorPlan, place } = require('./floorplan');
 const { buildWorkbook } = require('./template');
 const { loadStaff } = require('../../shared/staff');
 const { loadFloors } = require('../attendance');
@@ -39,6 +39,9 @@ module.exports = {
       return { sheets, staff: staff.map(s => ({ ...s, floor: floorOf[s.name] || (s.team === 3 ? '3층' : s.team ? '10층' : '') })), rules: rules(), hasPlan: { '10층': true, '3층': false } };
     });
     ipc.handle('cleaning:floorplan', async (_, floor) => { const f = settings.files(); return floor === '10층' && f.cleaning ? loadFloorPlan(f.cleaning) : null; });   // 배치도(Sheet1)는 10층 것만 있다
+    ipc.handle('cleaning:place', async (_, { floor, cells, tool }) => {       // 배치도 칸마다 올릴 담당자(화면·엑셀 공용)
+      const f = settings.files(); if (floor !== '10층' || !f.cleaning) return null; const fp = await loadFloorPlan(f.cleaning); return { fp, ...place(fp, cells, tool || []) };
+    });
     ipc.handle('cleaning:saveRules', (_, r, useSheets) => { settings.setMod('cleaning', { ...settings.mod('cleaning'), rules: r, useSheets }); return true; });
 
     ipc.handle('cleaning:run', (_, { floor, people, useSheets, lastSheet, seed }) => {
@@ -51,11 +54,14 @@ module.exports = {
       const fr = rules().floors[floor];
       return bigClean({ weekdayCells: cells, bigSlots: fr.bigSlots, people, history: rowsOf(useSheets), n: fr.toolCabinetN, airFilters: fr.airFilters, seed });
     });
-    ipc.handle('cleaning:save', async (_, { floor, sheetName, date, cells, big }) => {
+    ipc.handle('cleaning:save', async (_, { floor, sheetName, date, cells, big, include }) => {
       const r = await dialog.showSaveDialog({ defaultPath: `청소분담표_${floor}_${sheetName}.xlsx`, filters: [{ name: '엑셀', extensions: ['xlsx'] }] });
       if (r.canceled) return null;
       const fr = rules().floors[floor];
-      const wb = await buildWorkbook({ templateFile: settings.files().cleaning, floor, sheetName, date, cells, fixed: fr.fixed, big: big && { tool: big.tool, cells: big.cells, airFilters: big.airOn === false ? [] : big.airFilters } });
+      const f = settings.files(), inc = include || { week: true, big: !!big }, bg = big && { tool: big.tool, cells: big.cells, airFilters: big.airOn === false ? [] : big.airFilters };
+      const fp = floor === '10층' && f.cleaning && (inc.mapWeek || inc.mapBig) ? await loadFloorPlan(f.cleaning) : null;
+      const maps = fp && { fp, week: place(fp, cells), big: bg ? place(fp, big.cells, big.tool) : null };
+      const wb = await buildWorkbook({ templateFile: f.cleaning, floor, sheetName, date, cells, fixed: fr.fixed, big: bg, include: inc, maps });
       await wb.xlsx.writeFile(r.filePath); return r.filePath;
     });
   },

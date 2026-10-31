@@ -41,10 +41,10 @@ module.exports = {
       const r = await dialog.showSaveDialog({ defaultPath: `환자 평가명단 - POT 통합 ${month}월.xlsx`, filters: [{ name: '엑셀', extensions: ['xlsx'] }] });
       if (r.canceled) return null;
       const pots = settings.pot();
-      let wb;
-      if (pots.length) { const info = (await loadPot(pots)).files.filter(x => x.month).sort((a, b) => b.month.localeCompare(a.month)); wb = await buildFromTemplate({ templateFile: (info[0] || { file: pots[pots.length - 1] }).file, month, batch, rows }); }   // 가장 최근 달 파일의 서식
-      else wb = build({ month, batch, rows });
-      await wb.xlsx.writeFile(r.filePath); return r.filePath;
+      let buf;
+      if (pots.length) { const info = (await loadPot(pots)).files.filter(x => x.month).sort((a, b) => b.month.localeCompare(a.month)); buf = await buildFromTemplate({ templateFile: (info[0] || { file: pots[pots.length - 1] }).file, month, batch, rows }); }   // 가장 최근 달 파일의 서식
+      else buf = await build({ month, batch, rows }).xlsx.writeBuffer();
+      require('fs').writeFileSync(r.filePath, buf); return r.filePath;
     });
   },
 };

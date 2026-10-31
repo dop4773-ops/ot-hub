@@ -23,8 +23,9 @@ Hub.register({ id: 'roster', icon: '📅', desc: '재원·신환 환자의 이�
     if (Hub.needFiles(['status']).length) { $p().innerHTML = Hub.missingBox(['status']); return; }
     const R = S.res, nErr = R ? R.rows.filter(r => issues(r).length).length : 0, noPot = !S.info.pot.length;
     const view = R ? (S.sort ? R.rows : R.rows) : [];
+    const key = `${S.year}-${S.month}-${S.scope}-${S.from}-${S.to}`; if (!S.res && S.autoKey !== key && !Hub.needFiles(['status']).length) { S.autoKey = key; setTimeout(() => root.querySelector('#run')?.click()); }
     $p().innerHTML = `${noPot ? '<div class="box warnbox"><b>POT 통합 평가명단 파일이 연결되지 않았습니다.</b> 「파일 연결」에서 지난 달 파일들을 연결하면 재원 환자의 직전 평가일을 읽고, 내보낼 때 그 서식을 그대로 씁니다.</div>' : `<div class="mute">직전 평가일: POT 통합 파일 ${S.info.pot.length}개(${S.info.pot.map(p => esc(p.month || '?')).join(', ')} · 환자 ${S.info.potCount}명) · EMR 평가 기록 파일 ${S.info.emrFiles}개</div>`}
-    <div class="row"><select id="yy">${opts([now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1], S.year)}</select>년 <select id="mm">${opts([1,2,3,4,5,6,7,8,9,10,11,12], S.month)}</select>월 평가일
+    <div class="row actionbar"><select id="yy">${opts([now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1], S.year)}</select>년 <select id="mm">${opts([1,2,3,4,5,6,7,8,9,10,11,12], S.month)}</select>월 평가일
       <div class="seg" id="scopeSeg">${[['all', '전체'], ['existing', '재원(1차)'], ['new', '신환(2차)']].map(([v, l]) => `<button data-v="${v}" class="${v === S.scope ? 'active' : ''}">${l}</button>`).join('')}</div>
       신환 입원일 <input type="date" id="from" value="${S.from}"> ~ <input type="date" id="to" value="${S.to}"><button id="run" class="btn primary">${R ? '다시 만들기' : '명단 만들기'}</button></div>
     ${R ? `<div class="strip"><b>${R.rows.length}명</b><span>재원 ${R.rows.filter(r => !r.isNew).length} · 신환 ${R.rows.filter(r => r.isNew).length}</span><span class="${nErr ? 'err' : 'ok'}">규칙 위반 ${nErr}건</span><span class="mute">EMR 평가 확인 ${R.emr.patients}명${R.emr.from ? ` (${esc(R.emr.from)}${R.emr.to && R.emr.to !== R.emr.from ? '~' + esc(R.emr.to) : ''})` : ''}</span><button id="save" class="btn primary" style="margin-left:auto">POT 통합 서식으로 저장</button></div>

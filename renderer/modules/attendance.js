@@ -22,7 +22,7 @@ Hub.register({ id: 'attendance', icon: '🕘', desc: '층별 직급순 출근부
   }
   function draw() {
     const list = S.data.floors[S.floor], dim = new Date(S.year, S.month, 0).getDate();
-    root.innerHTML = `<div class="row"><select id="floor">${opts(Object.keys(S.data.floors), S.floor)}</select> 치료실 · <select id="yy">${opts([S.year - 1, S.year, S.year + 1], S.year)}</select>년 <select id="mm">${opts([1,2,3,4,5,6,7,8,9,10,11,12], S.month)}</select>월 (${dim}일)</div>
+    root.innerHTML = `<div class="row actionbar"><select id="floor">${opts(Object.keys(S.data.floors), S.floor)}</select> 치료실 · <select id="yy">${opts([S.year - 1, S.year, S.year + 1], S.year)}</select>년 <select id="mm">${opts([1,2,3,4,5,6,7,8,9,10,11,12], S.month)}</select>월 (${dim}일)</div>
     <div class="mute">평일시간표의 그 층 치료사만 모아, 팀 시트의 직급순(팀장 → 부팀장 → 주임 → 사원 연차순)으로 넣습니다. 토요일·공휴일 근무도 표시하며, 토요일은 <span class="sat">파란색</span>, 일요일·공휴일은 <span class="sun">붉은색</span>, 공휴일은 회색 바탕입니다.</div>
     <h2>${esc(S.floor)} 명단 ${names().length}명 <span class="mute">(이름을 누르면 이번 달만 제외, '휴직'을 체크하면 육아휴직처럼 계속 제외)</span></h2>
     <div class="chips">${list.map(p => `<span class="chip ${S.off[p.name] || isLeave(p.name) ? 'off' : ''}" data-p="${esc(p.name)}">${esc(p.name)} <span class="mute">${esc(p.rank ? p.rank + (p.years ? p.years + '년' : '') : '팀 시트에 없음')}</span><label class="lv" title="육아휴직 등 휴직자 — 체크하면 계속 제외됩니다"><input type="checkbox" data-leave="${esc(p.name)}" ${isLeave(p.name) ? 'checked' : ''}> 휴직</label></span>`).join('')}</div>
@@ -30,7 +30,7 @@ Hub.register({ id: 'attendance', icon: '🕘', desc: '층별 직급순 출근부
     <h2>공휴일 (한 줄에 하나)</h2><div class="mute">고정일 공휴일만 미리 채웠습니다. 설날·추석·대체공휴일·선거일은 달력과 대조해 추가하세요.</div>
     <textarea id="hol" rows="6" cols="22" style="font:inherit;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:6px">${esc(S.holidays)}</textarea>
     <h2>미리보기 <span class="mute">(1~15일 · 첫 블록 6명 — 원본 출근부와 같은 양식 — 일요일은 날짜 전체 회색, 토요일 파랑·일요일/공휴일 빨강 글자)</span></h2>${preview()}
-    <div class="row" style="margin-top:14px"><button id="save" class="pri">새 엑셀로 저장</button><span class="mute">1~15일, 16~말일 두 시트가 만들어집니다</span></div>`;
+    <div class="exportbar"><button id="save" class="pri" style="margin-left:0">새 엑셀로 저장</button><span class="mute">1~15일, 16~말일 두 시트가 만들어집니다</span></div>`;
   }
   root.onchange = async e => { const t = e.target;
     if (t.id === 'floor') { S.floor = t.value; draw(); }

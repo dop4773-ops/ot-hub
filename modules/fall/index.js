@@ -54,7 +54,7 @@ module.exports = {
     ipc.handle('fall:save', async (_, { year, month, weeks, floor }) => {
       const r = await dialog.showSaveDialog({ defaultPath: `낙상방지 순회 체크리스트_${floor || ''}_${year}-${String(month).padStart(2, '0')}.xlsx`.replace('__', '_'), filters: [{ name: '엑셀', extensions: ['xlsx'] }] });
       if (r.canceled) return null;
-      const wb = await L.build({ templateFile: settings.files().fall, year, month, weeks }); await wb.xlsx.writeFile(r.filePath); return r.filePath;
+      fs.writeFileSync(r.filePath, await L.build({ templateFile: settings.files().fall, year, month, weeks })); return r.filePath;
     });
   },
 };

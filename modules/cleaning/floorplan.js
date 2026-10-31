@@ -39,6 +39,25 @@ async function parsePlan(file) {
   const note = blocks.find(b => b.r === 1 && b.c === 1 && b.cs >= 10 && b.rs >= 10);
   // 안내문이 차지하던 위쪽 빈 행과 아래 빈 행은 그림이 아니라서 잘라 낸다
   const kept = blocks.filter(b => b !== note), top = Math.min(...kept.map(b => b.r)), bottom = Math.max(...kept.map(b => b.r + b.rs - 1));
-  return { cols, rows: rows.slice(top - 1, bottom), blocks: kept.map(b => ({ ...b, r: b.r - top + 1 })), note: note ? note.text : '' };
+  return { top, cols, rows: rows.slice(top - 1, bottom), blocks: kept.map(b => ({ ...b, r: b.r - top + 1 })), note: note ? note.text : '' };
 }
-module.exports = { loadFloorPlan: f => memo('floorplan', f, () => parsePlan(f)) };
+
+// 배치도 칸의 글자 → 청소 구역(zoneKey)·역할. 위에서부터 먼저 맞는 칸이 담당자를 가져간다(구역당 한 칸).
+const MAP = [
+  { re: /OT\s*치료실/, zone: '작업치료실', not: /창틀/ }, { re: /^OT\s*창\s*틀|OT\s*창틀/, zone: '작업치료실', only: /창틀/ },
+  { re: /OT\s*station/i, zone: '스테이션' }, { re: /ADL실.*OT|^ADL실/, zone: '인지연하' },
+  { re: /도\s*구\s*장/, zone: '도구장', not: /짐볼/ }, { re: /^복도$/, zone: '공용공간', not: /E\/V/ }, { re: /E\/V\s*빗자루/, zone: '공용공간', only: /E\/V/ }];
+const { zoneKey } = require('./assign');
+// cells: [{zone, role, name}] — 이름이 없으면 '지원 필요'. 돌려주는 값: blocks[i] = 그 칸에 올릴 줄들 [{role, names:[{n, vac}]}], tool(도구장 칸 여부), rest = 배치도에 칸이 없는 구역
+function place(fp, cells, tool = []) {
+  const by = {}; cells.forEach((c, i) => { (by[zoneKey(c.zone)] ??= []).push({ ...c, i }); });
+  const claimed = new Map(), used = new Set();
+  fp.blocks.forEach((b, bi) => { for (const m of MAP) { if (used.has(m.zone + '|' + (m.only || '')) || !m.re.test(b.text) || (m.not && m.not.test(b.text))) continue; claimed.set(bi, m); used.add(m.zone + '|' + (m.only || '')); break; } });
+  const lines = m => { const g = {}; (by[m.zone] || []).forEach(c => { if (m.only && !m.only.test(c.role)) return; if (m.not && m.not.test(c.role)) return; if (m.zone === '작업치료실' && !m.only && /창틀/.test(c.role)) return;
+    (g[c.role || '담당'] ??= []).push({ n: c.name || '', vac: !c.name }); }); return Object.entries(g).map(([role, names]) => ({ role: role.replace(/\(.*\)/, ''), names })); };
+  const blocks = fp.blocks.map((b, bi) => { const m = claimed.get(bi); return { lines: m ? lines(m) : [], tool: !!(m && m.zone === '도구장' && tool.length) }; });
+  const placed = new Set([...claimed.values()].map(m => m.zone));
+  const rest = Object.keys(by).filter(z => !placed.has(z)).map(z => ({ zone: z, items: by[z].map(c => ({ role: c.role || '', n: c.name || '', vac: !c.name })) }));
+  return { blocks, rest, tool };
+}
+module.exports = { loadFloorPlan: f => memo('floorplan', f, () => parsePlan(f)), place };

@@ -8,7 +8,7 @@ Hub.register({ id: 'fall', icon: '🚶', desc: '평일은 주 단위, 토요일�
   async function load() {
     if (Hub.needFiles(['fall']).length) { root.innerHTML = Hub.missingBox(['fall']); return; }
     S.data = await invoke('fall:load'); if (S.data.error) { root.innerHTML = `<div class="warn">${esc(S.data.error)}</div>`; return; }
-    setHol(); draw();
+    setHol(); draw(); generate(true);
   }
   const setHol = () => { S.holText = Object.entries(S.data.holidays).filter(([d]) => d.startsWith(`${S.year}-${pad(S.month)}`)).map(([d, n]) => `${d} ${n}`).join('\n'); };
   const holidays = () => Object.fromEntries(S.holText.split('\n').map(l => l.trim().match(/^(\d{4}-\d{2}-\d{2})\s*(.*)$/)).filter(Boolean).map(m => [m[1], m[2] || '공휴일']));
@@ -16,22 +16,24 @@ Hub.register({ id: 'fall', icon: '🚶', desc: '평일은 주 단위, 토요일�
   const calOpen = () => !S.data.calendarUrl && !S.data.calendarFile;
 
   function draw() {
-    const R = S.res, roster = S.data.roster;
-    root.innerHTML = `<div class="row"><select id="floor">${opts(['10층', '3층'], S.floor)}</select> <select id="yy">${opts([S.year - 1, S.year, S.year + 1], S.year)}</select>년 <select id="mm">${opts([1,2,3,4,5,6,7,8,9,10,11,12], S.month)}</select>월
-      <button id="run" class="btn primary">${R ? '다시 배정하기' : '배정하기'}</button>${R ? `<button id="save" class="btn">새 엑셀로 저장</button><span class="${S.issues.length ? 'err' : 'ok'}">${S.issues.length ? `확인 필요 ${S.issues.length}칸` : '빈칸·중복 없음'}</span>` : ''}</div>
-    <details ${calOpen() ? 'open' : ''} class="box"><summary><b>구글 캘린더 연결</b> <span class="${S.data.calendarUrl || S.data.calendarFile ? 'ok' : 'warn'}">${S.data.calendarUrl || S.data.calendarFile ? '연결됨' : '연결 안 됨 — 연차를 반영하지 못합니다'}</span> <span class="mute">${esc(S.calMsg)}</span></summary>
-      <div class="mute">캘린더 설정의 "비공개 주소(iCal 형식)"를 붙여 넣으세요. 「이름T연차」「이름T오후반차」는 그날 쉬는 사람으로, 「3팀」처럼 팀 이름만 적힌 일정(반복 포함)은 그날 근무하는 팀으로 읽습니다. 읽기만 합니다.</div>
-      <div class="row"><input id="calUrl" type="url" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics" value="${esc(S.data.calendarUrl)}" style="width:480px"><button id="calSave">저장하고 확인</button><button id="calFile">.ics 파일로 대신</button></div></details>
-    <div class="row" style="align-items:flex-start"><label>공휴일 (날짜 이름, 한 줄에 하나)</label><textarea id="hol" rows="3" cols="26" placeholder="2026-11-04 임시공휴일">${esc(S.holText)}</textarea><span class="mute">공휴일은 표에서 비워 두고 이름만 적습니다. 일요일은 표에 없습니다.${S.data.hasSaturday ? '' : ' <span class="warn">「파일 연결」에서 "토요일&공휴일 시간표"를 연결하면 그날 근무 팀과 3층 근무자를 자동으로 반영합니다.</span>'}</span></div>
-    ${R ? `${notes()}${special()}<div class="mute" style="margin:8px 0">칸을 누르면 이름 검색 창이 뜹니다(입력 → Enter, 취소·비우기 버튼 있음). 평일 칸은 그 주 월~금이 함께 바뀌고, 토요일 칸은 하루만 바뀝니다. 빨간 칸은 확인이 필요합니다. <span class="cell edited" style="padding:0 6px">주황 테두리</span> = 직접 바꾼 칸(화면 표시일 뿐 저장되는 엑셀에는 나타나지 않습니다).</div>${preview()}` : '<div class="mute" style="margin-top:12px">월·층을 고르고 "배정하기"를 누르면 시트 모양으로 미리 보여 드립니다.</div>'}`;
+    const R = S.res, cal = S.data.calendarUrl || S.data.calendarFile, nNote = R ? R.notes.length : 0;
+    root.innerHTML = `<div class="row actionbar"><select id="floor">${opts(['10층', '3층'], S.floor)}</select><select id="yy">${opts([S.year - 1, S.year, S.year + 1], S.year)}</select>년<select id="mm">${opts([1,2,3,4,5,6,7,8,9,10,11,12], S.month)}</select>월
+      <button id="run" class="btn">↻ 다시 배정</button>${R ? '<button id="save" class="btn primary">엑셀로 저장</button>' : ''}
+      ${R ? `<span class="${S.issues.length ? 'err' : 'ok'}">${S.issues.length ? `확인 필요 ${S.issues.length}칸` : '빈칸 없음'}</span>` : ''}
+      <span class="${cal ? 'ok' : 'warn'}" style="margin-left:auto">${cal ? '캘린더 연결됨' : '캘린더 연결 안 됨(연차 미반영)'}</span></div>
+    <details class="box slim" ${calOpen() ? 'open' : ''}><summary>⚙ 설정 — 구글 캘린더 · 공휴일 <span class="mute">${esc(S.calMsg)}</span></summary>
+      <div class="row"><input id="calUrl" type="url" placeholder="구글 캘린더 비공개 iCal 주소 https://…/basic.ics" value="${esc(S.data.calendarUrl)}" style="flex:1;min-width:260px"><button id="calSave">저장하고 확인</button><button id="calFile">.ics 파일로</button></div>
+      <div class="mute">「이름T연차」「이름T오후반차」는 그날 쉬는 사람, 「3팀」처럼 팀만 적힌 일정은 그날 근무 팀으로 읽습니다(읽기만 함).</div>
+      <div class="row"><label>공휴일</label><textarea id="hol" rows="2" cols="30" placeholder="2026-11-04 임시공휴일">${esc(S.holText)}</textarea><span class="mute">날짜 이름, 한 줄에 하나 · 표에서는 비우고 이름만 적습니다${S.data.hasSaturday ? '' : ' · <span class="warn">「파일 연결」에서 토요일&공휴일 시간표를 연결하면 근무 팀·3층 근무자를 자동 반영</span>'}</span></div></details>
+    ${R ? `${notes()}${special()}<div class="mute small">칸을 누르면 이름 검색 창이 뜹니다. 평일 칸은 그 주 월~금이, 토요일 칸은 하루만 바뀝니다. <span class="cell edited" style="padding:0 5px">주황 테두리</span>는 직접 바꾼 칸(화면 표시일 뿐 엑셀에는 안 나옵니다).</div>${preview()}` : '<div class="mute" style="margin-top:12px">배정하는 중…</div>'}`;
   }
-  const notes = () => S.res.notes.length ? `<div class="box warnbox"><b>확인할 점</b><ul>${S.res.notes.slice(0, 12).map(n => `<li>${esc(n)}</li>`).join('')}</ul></div>` : '';
-  // 토요일·공휴일 근무자 확인: 누가 어느 층에서 근무하는지(시트의 빨간 테두리), 쉬는 사람. 눌러서 고치면 다시 배정에 반영된다.
+  const notes = () => S.res.notes.length ? `<details class="box slim warnbox"><summary><b>확인할 점 ${S.res.notes.length}건</b> <span class="mute">${esc(S.res.notes[0])}${S.res.notes.length > 1 ? ' …' : ''}</span></summary><ul>${S.res.notes.slice(0, 14).map(n => `<li>${esc(n)}</li>`).join('')}</ul></details>` : '';
+  // 토요일·공휴일 근무자: 날짜마다 한 줄(왼쪽 = 날짜·팀·근거, 오른쪽 = 이름). 이름을 누르면 10층 ↔ 3층, 다시 배정하면 반영.
   function special() {
-    const rows = Object.entries(S.res.info).sort(([a], [b]) => a < b ? -1 : 1);
-    return `<details class="box" open><summary><b>토요일·공휴일 근무자</b> <span class="mute">이름을 누르면 10층 ↔ 3층이 바뀝니다 (다시 배정하면 반영)</span></summary>${rows.map(([date, i]) => { const [bg, label] = TEAM[i.team] || ['#d9d9d9', '팀 미확인'];
-      return `<div class="sp"><span class="tm2" style="background:${bg}">${esc(date.slice(5))} ${Hub.wd(date)} · ${esc(label)}</span><span class="mute">${esc(i.holiday || '')} 근거: ${esc(i.source)}</span>
-      ${i.people.map(p => `<span class="pp ${p.off ? 'off' : p.floor3 ? 'f3' : 'f10'}" data-sp="${date}|${esc(p.name)}" title="${p.off ? '이 날 쉼' : p.floor3 ? '3층 근무' : '10층 근무'} (시트의 빨간 테두리 ${p.red || 0}칸)">${esc(p.name)}${p.floor3 ? ' 3층' : ''}${p.off ? ' 휴가' : ''}</span>`).join('') || '<span class="mute">근무자 정보 없음</span>'}</div>`; }).join('')}</details>`;
+    const rows = Object.entries(S.res.info).sort(([a], [b]) => a < b ? -1 : 1), SRC = { '토요일 시트': '시트', '캘린더': '캘린더', '순환(추정)': '추정' };
+    return `<details class="box slim" open><summary><b>토요일·공휴일 근무자</b> <span class="mute">이름을 누르면 10층 ↔ 3층 (다시 배정하면 반영)</span></summary><div class="spgrid">${rows.map(([date, i]) => { const [bg, label] = TEAM[i.team] || ['#d9d9d9', '팀 ?'], src = SRC[i.source.split(' ')[0]] || i.source;
+      return `<div class="spl"><span class="tm2" style="background:${bg}">${+date.slice(5, 7)}/${+date.slice(8)} ${Hub.wd(date)} · ${esc(label)}</span><span class="src ${src === '추정' ? 'warn' : ''}" title="${esc(i.source)}">${esc(i.holiday || src)}</span></div>
+      <div class="spn">${i.people.map(p => `<span class="pp ${p.off ? 'off' : p.floor3 ? 'f3' : 'f10'}" data-sp="${date}|${esc(p.name)}" title="${p.off ? '이 날 쉼' : p.floor3 ? '3층 근무' : '10층 근무'} (시트의 빨간 테두리 ${p.red || 0}칸)">${esc(p.name)}${p.floor3 ? ' · 3층' : ''}${p.off ? ' · 휴가' : ''}</span>`).join('') || '<span class="mute">근무자 정보 없음</span>'}</div>`; }).join('')}</div></details>`;
   }
   function preview() {
     const days = S.res.weeks.flatMap(w => w.days), halves = [days.filter(d => d.day <= 15), days.filter(d => d.day > 15)].filter(h => h.length);
@@ -60,11 +62,11 @@ Hub.register({ id: 'fall', icon: '🚶', desc: '평일은 주 단위, 토요일�
     setTimeout(() => document.addEventListener('mousedown', outside, true));
   }
   async function recheck() { S.issues = await invoke('fall:check', { weeks: S.res.weeks }); }
-  async function generate() { say('배정하는 중…'); S.res = await invoke('fall:generate', { year: S.year, month: S.month, floor: S.floor, holidays: holidays(), seed: Date.now() % 1e6, overrides: S.ov }); S.issues = S.res.issues; S.edited.clear(); say('배정했습니다'); draw(); }
+  async function generate(quiet) { if (!quiet) say('배정하는 중…'); S.res = await invoke('fall:generate', { year: S.year, month: S.month, floor: S.floor, holidays: holidays(), seed: Date.now() % 1e6, overrides: S.ov }); S.issues = S.res.issues; S.edited.clear(); if (!quiet) say('배정했습니다'); draw(); }
   root.oninput = e => { if (e.target.id === 'hol') S.holText = e.target.value; };
   root.onchange = async e => {
     const t = e.target;
-    if (t.id === 'yy') { S.year = +t.value; S.res = null; S.ov = {}; setHol(); draw(); } if (t.id === 'mm') { S.month = +t.value; S.res = null; S.ov = {}; setHol(); draw(); } if (t.id === 'floor') { S.floor = t.value; S.res = null; draw(); }
+    if (t.id === 'yy') { S.year = +t.value; S.res = null; S.ov = {}; setHol(); draw(); generate(true); } if (t.id === 'mm') { S.month = +t.value; S.res = null; S.ov = {}; setHol(); draw(); generate(true); } if (t.id === 'floor') { S.floor = t.value; S.res = null; draw(); generate(true); }
   };
   root.onclick = async e => {
     const t = e.target, c = t.closest('.cell');

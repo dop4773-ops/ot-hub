@@ -140,25 +140,26 @@ function check({ weeks, roster }) {
 }
 
 /* ---------- 엑셀: 낙상방지 파일의 '원본' 시트(서식·너비·글꼴·로고·가로 인쇄)를 그대로 열어 이름만 채운다 ---------- */
-const ExcelJS = require('exceljs');
 const TEAM_FILL = { 1: 'FFFFF2CC', 2: 'FFE2EFDA', 3: 'FFDDEBF7' }, HOLIDAY_FILL = 'FFD9D9D9';
 const colOf = n => { let s = ''; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
 const TABLE = [{ dateRow: 3, dow: 5, first: 7, cols: 13 }, { dateRow: 20, dow: 22, first: 24, cols: 14 }];       // 위/아래 표: 날짜 머리글 행, 요일 행, 첫 순회 행, 한 표의 날짜 칸 수
 const slotRow = (t, i) => TABLE[t].first + i + (i >= 5 ? 1 : 0);                                            // 6번째(13:30)부터 점심시간 한 줄을 건너뛴다
 
+// 낙상방지 파일의 '원본' 시트(서식·너비·글꼴·로고·가로 인쇄)를 엑셀 파일 안쪽(XML)에서 직접 고쳐 이름만 채운다 — ExcelJS로 다시 쓰면 "내용에 문제가 있습니다" 복구 창이 뜨던 문제를 피한다.
 async function build({ templateFile, year, month, weeks }) {
-  const wb = new ExcelJS.Workbook(); await wb.xlsx.readFile(templateFile);
-  const ws = wb.getWorksheet('원본'); if (!ws) throw new Error("낙상방지 파일에 '원본' 시트가 없습니다");
-  ws.getCell('A1').value = month; ws.getCell('AA2').value = year;                                         // 원본의 수식이 날짜·요일을 채운다(일요일 건너뜀)
+  const Z = require('../../shared/zipx'), zip = await Z.loadZip(templateFile);
+  const path = await Z.keepOnlySheet(zip, '원본', `${month}월`); let xml = await zip.file(path).async('string'); const st = Z.fills(await zip.file('xl/styles.xml').async('string'));
+  xml = Z.setCell(xml, 'A1', month); xml = Z.setCell(xml, 'AA2', year);                                    // 원본의 수식이 날짜·요일을 채운다(일요일 건너뜀)
   const days = weeks.flatMap(w => w.days);
   days.forEach((d, k) => {
     const t = k < TABLE[0].cols ? 0 : 1, c = 4 + (t === 0 ? k : k - TABLE[0].cols) * 2;                      // D, F, H, …
-    for (let i = 0; i < 11; i++) { const cell = ws.getCell(slotRow(t, i), c); cell.value = d.holiday ? (i === 0 ? d.holiday : null) : (d.names[i] || null); }
-    const fill = (d.wd === '토' || d.holiday) ? { type: 'pattern', pattern: 'solid', fgColor: { argb: d.team ? TEAM_FILL[d.team] : HOLIDAY_FILL } } : null;
-    if (fill) for (const col of [c, c + 1]) for (let r = TABLE[t].dateRow; r <= slotRow(t, 10); r++) ws.getCell(r, col).fill = fill;   // 토요일·공휴일은 근무 팀 색으로 열 전체
+    for (let i = 0; i < 11; i++) xml = Z.setCell(xml, `${colOf(c)}${slotRow(t, i)}`, d.holiday ? (i === 0 ? d.holiday : null) : (d.names[i] || null));
+    if (d.wd === '토' || d.holiday) {                                                                         // 토요일·공휴일은 근무 팀 색으로 열 전체
+      const argb = d.team ? TEAM_FILL[d.team] : HOLIDAY_FILL;
+      for (const col of [c, c + 1]) for (let r = TABLE[t].dateRow; r <= slotRow(t, 10); r++) { const ref = `${colOf(col)}${r}`, s = Z.styleOf(xml, ref); if (s != null) xml = Z.setStyle(xml, ref, st.get(s, argb)); }
+    }
   });
-  for (const other of wb.worksheets.filter(x => x !== ws)) wb.removeWorksheet(other.id);
-  ws.name = `${month}월`;
-  return wb;
+  zip.file(path, xml); zip.file('xl/styles.xml', st.finish());
+  return Z.save(zip);
 }
 module.exports = { SLOTS, loadRoster, loadHistory, generate, check, build, weeksOf, tally, parseMonth, TEAM_FILL };
